@@ -451,17 +451,17 @@ https://[domain]/jobs/[secure-token]
 
 ## Status
 
-- [ ] Jobs list page with status filter
-- [ ] Job detail page (admin view) — customer info, service, schedule, photos, timeline
-- [ ] Calendar view of jobs (reuse template calendar)
-- [ ] Cleaner list page
-- [ ] Cleaner detail page
-- [ ] Create cleaner form
-- [ ] Auto-generate strong password on creation
-- [ ] Copy credentials button
-- [ ] Job assignment form (select cleaner, date, time)
-- [ ] Generate secure job token on assignment
-- [ ] Copy job link button
+- [x] Jobs list page with status filter (`/dashboard/jobs`)
+- [x] Job detail page (admin view) (`/dashboard/jobs/[id]`)
+- [x] Calendar view of jobs (`/dashboard/jobs/calendar`)
+- [x] Cleaner list page (`/dashboard/cleaners`)
+- [x] Cleaner detail profile page (`/dashboard/cleaners/[id]`)
+- [x] Create cleaner account form (`/dashboard/cleaners/new`)
+- [x] Auto-generate strong password on creation
+- [x] Copy credentials button (email + password for WhatsApp)
+- [x] Job assignment form (`AssignCleanerDialog`)
+- [x] Generate secure job token on assignment (`UUID`)
+- [x] Copy WhatsApp job link button
 
 ---
 

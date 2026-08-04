@@ -449,6 +449,20 @@ DROP TRIGGER IF EXISTS set_invoice_number ON invoices;
 CREATE TRIGGER set_invoice_number BEFORE INSERT ON invoices FOR EACH ROW EXECUTE PROCEDURE generate_invoice_number();
 
 
+-- Helper function to check admin role without RLS recursion
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+$$;
+
 -- 6. ROW LEVEL SECURITY (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE services ENABLE ROW LEVEL SECURITY;
@@ -467,26 +481,26 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
-CREATE POLICY "profiles_own_read" ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "profiles_read_all" ON profiles FOR SELECT USING (true);
 CREATE POLICY "profiles_own_update" ON profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "profiles_admin_all" ON profiles FOR ALL USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY "profiles_admin_all" ON profiles FOR ALL USING (public.is_admin());
 
 -- Services: anyone can read active services
 CREATE POLICY "services_public_read" ON services FOR SELECT USING (is_active = true);
-CREATE POLICY "services_admin_all" ON services FOR ALL USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY "services_admin_all" ON services FOR ALL USING (public.is_admin());
 
 -- Bookings policies
-CREATE POLICY "bookings_admin_all" ON bookings FOR ALL USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY "bookings_admin_all" ON bookings FOR ALL USING (public.is_admin());
 CREATE POLICY "bookings_customer_read" ON bookings FOR SELECT USING (customer_id IN (SELECT id FROM customers WHERE profile_id = auth.uid()));
 
 -- Jobs policies
-CREATE POLICY "jobs_admin_all" ON jobs FOR ALL USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY "jobs_admin_all" ON jobs FOR ALL USING (public.is_admin());
 CREATE POLICY "jobs_cleaner_read" ON jobs FOR SELECT USING (cleaner_id = auth.uid());
 CREATE POLICY "jobs_cleaner_update" ON jobs FOR UPDATE USING (cleaner_id = auth.uid());
 
 -- Photos policies
-CREATE POLICY "photos_admin_all" ON photos FOR ALL USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY "photos_admin_all" ON photos FOR ALL USING (public.is_admin());
 CREATE POLICY "photos_cleaner_insert" ON photos FOR INSERT WITH CHECK (uploaded_by = auth.uid());
 
 -- Audit logs policies
-CREATE POLICY "audit_logs_admin_read" ON audit_logs FOR SELECT USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY "audit_logs_admin_read" ON audit_logs FOR SELECT USING (public.is_admin());

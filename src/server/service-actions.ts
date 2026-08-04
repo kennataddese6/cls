@@ -87,9 +87,9 @@ export async function getServicesListAction(): Promise<ServiceItem[]> {
 
     return data.map((item) => ({
       id: item.id,
-      title: item.title,
-      price: item.price || (item.base_price ? `£${item.base_price}` : "£100.00"),
-      duration: item.duration || (item.estimated_duration_hours ? `${item.estimated_duration_hours} hours` : "3 hours"),
+      title: item.title || "Cleaning Service",
+      price: item.price || "£100.00",
+      duration: item.duration || "3 hours",
       description: item.description || "",
       checklist: Array.isArray(item.checklist) ? item.checklist : [],
     })) as ServiceItem[];
@@ -107,17 +107,13 @@ export async function createServiceAction(data: {
 }) {
   try {
     const supabase = createSupabaseAdminClient();
-    const numericPrice = Number.parseFloat(data.price.replace(/[^0-9.]/g, "")) || 100;
-    const numericDuration = Number.parseFloat(data.duration.replace(/[^0-9.]/g, "")) || 3;
 
     const { data: created, error } = await supabase
       .from("services")
       .insert({
         title: data.title,
         price: data.price,
-        base_price: numericPrice,
         duration: data.duration,
-        estimated_duration_hours: numericDuration,
         description: data.description,
         checklist: data.checklist,
       })
@@ -125,22 +121,7 @@ export async function createServiceAction(data: {
       .single();
 
     if (error) {
-      // If error due to missing checklist column, insert without checklist
-      const { data: fallback, error: fallbackErr } = await supabase
-        .from("services")
-        .insert({
-          title: data.title,
-          base_price: numericPrice,
-          estimated_duration_hours: numericDuration,
-          description: data.description,
-        })
-        .select()
-        .single();
-
-      if (fallbackErr) {
-        return { success: false, error: fallbackErr.message };
-      }
-      return { success: true, item: fallback };
+      return { success: false, error: error.message };
     }
 
     revalidatePath("/services");
@@ -163,29 +144,35 @@ export async function updateServiceAction(
 ) {
   try {
     const supabase = createSupabaseAdminClient();
-    const numericPrice = Number.parseFloat(data.price.replace(/[^0-9.]/g, "")) || 100;
-    const numericDuration = Number.parseFloat(data.duration.replace(/[^0-9.]/g, "")) || 3;
 
-    // Check if updating a default item
+    // Check if updating a default item with non-UUID id
     if (id.startsWith("service-")) {
-      const { error } = await supabase.from("services").upsert({
-        title: data.title,
-        price: data.price,
-        base_price: numericPrice,
-        duration: data.duration,
-        estimated_duration_hours: numericDuration,
-        description: data.description,
-        checklist: data.checklist,
-      });
+      // Find if a row with this title exists
+      const { data: existing } = await supabase.from("services").select("id").eq("title", data.title).maybeSingle();
 
-      if (error) {
-        // Fallback upsert without extra columns
-        await supabase.from("services").upsert({
+      if (existing) {
+        const { error } = await supabase
+          .from("services")
+          .update({
+            title: data.title,
+            price: data.price,
+            duration: data.duration,
+            description: data.description,
+            checklist: data.checklist,
+          })
+          .eq("id", existing.id);
+
+        if (error) return { success: false, error: error.message };
+      } else {
+        const { error } = await supabase.from("services").insert({
           title: data.title,
-          base_price: numericPrice,
-          estimated_duration_hours: numericDuration,
+          price: data.price,
+          duration: data.duration,
           description: data.description,
+          checklist: data.checklist,
         });
+
+        if (error) return { success: false, error: error.message };
       }
     } else {
       const { error } = await supabase
@@ -193,26 +180,13 @@ export async function updateServiceAction(
         .update({
           title: data.title,
           price: data.price,
-          base_price: numericPrice,
           duration: data.duration,
-          estimated_duration_hours: numericDuration,
           description: data.description,
           checklist: data.checklist,
         })
         .eq("id", id);
 
-      if (error) {
-        // Fallback update without extra columns
-        await supabase
-          .from("services")
-          .update({
-            title: data.title,
-            base_price: numericPrice,
-            estimated_duration_hours: numericDuration,
-            description: data.description,
-          })
-          .eq("id", id);
-      }
+      if (error) return { success: false, error: error.message };
     }
 
     revalidatePath("/services");
@@ -226,10 +200,9 @@ export async function updateServiceAction(
 export async function deleteServiceAction(id: string) {
   try {
     const supabase = createSupabaseAdminClient();
-    const { error } = await supabase.from("services").delete().eq("id", id);
-
-    if (error) {
-      return { success: false, error: error.message };
+    if (!id.startsWith("service-")) {
+      const { error } = await supabase.from("services").delete().eq("id", id);
+      if (error) return { success: false, error: error.message };
     }
 
     revalidatePath("/services");

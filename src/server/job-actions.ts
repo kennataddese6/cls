@@ -643,8 +643,29 @@ export async function updateCleanerJobStatusAction(input: {
       await supabase.from("jobs").update({ started_at: now }).eq("id", job.id);
       await supabase.from("bookings").update({ status: "in_progress" }).eq("id", job.booking_id);
     } else if (input.action === "complete") {
-      await supabase.from("jobs").update({ completed_at: now, cleaner_notes: input.cleaner_notes }).eq("id", job.id);
-      await supabase.from("bookings").update({ status: "completed_pending_review" }).eq("id", job.booking_id);
+      // Enforce mandatory before & after photo upload requirement
+      const adminSupabase = createSupabaseAdminClient();
+      const { data: photos } = await adminSupabase
+        .from("photos")
+        .select("id, photo_type, category")
+        .eq("booking_id", job.booking_id);
+
+      const hasBefore = photos?.some((p) => p.photo_type === "before" || (p as any).category === "before");
+      const hasAfter = photos?.some((p) => p.photo_type === "after" || (p as any).category === "after");
+
+      if (!photos || photos.length === 0 || !hasBefore || !hasAfter) {
+        return {
+          success: false,
+          error:
+            "Photo evidence required: You must upload at least one 'Before' photo and one 'After' photo before submitting the job for approval.",
+        };
+      }
+
+      await adminSupabase
+        .from("jobs")
+        .update({ completed_at: now, cleaner_notes: input.cleaner_notes })
+        .eq("id", job.id);
+      await adminSupabase.from("bookings").update({ status: "completed_pending_review" }).eq("id", job.booking_id);
     }
 
     await supabase.from("audit_logs").insert({

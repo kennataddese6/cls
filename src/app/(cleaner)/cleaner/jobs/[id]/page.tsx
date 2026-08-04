@@ -64,6 +64,14 @@ export default async function CleanerJobDetailPage({ params }: { params: Promise
       bookingStatus === "paid",
   );
 
+  const existingPhotos = job.booking?.photos || [];
+  const hasBeforePhoto = existingPhotos.some(
+    (p: { category?: string; photo_type?: string }) => p.category === "before" || p.photo_type === "before",
+  );
+  const hasAfterPhoto = existingPhotos.some(
+    (p: { category?: string; photo_type?: string }) => p.category === "after" || p.photo_type === "after",
+  );
+
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto">
       {/* Top Header */}
@@ -166,6 +174,8 @@ export default async function CleanerJobDetailPage({ params }: { params: Promise
             acceptedAt={job.accepted_at}
             startedAt={job.started_at}
             completedAt={job.completed_at}
+            hasBeforePhoto={hasBeforePhoto}
+            hasAfterPhoto={hasAfterPhoto}
           />
         </CardContent>
       </Card>

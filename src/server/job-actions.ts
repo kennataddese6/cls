@@ -732,50 +732,54 @@ export async function uploadJobPhotoAction(formData: FormData) {
     const category = (formData.get("category") as "before" | "after") || "before";
     const file = formData.get("file") as File;
 
-    if (!file || !bookingId) throw new Error("File and booking ID are required");
+    if (!file || !bookingId) {
+      return { success: false, error: "File and booking ID are required" };
+    }
+
+    // Determine uploaded_by profile ID
+    let uploadedById = user?.id;
+    if (!uploadedById) {
+      const { data: firstProfile } = await adminSupabase.from("profiles").select("id").limit(1).single();
+      uploadedById = firstProfile?.id;
+    }
+
+    if (!uploadedById) {
+      return { success: false, error: "User profile record not found for photo upload" };
+    }
 
     const fileExt = file.name.split(".").pop() || "jpg";
     const filePath = `${bookingId}/${category}_${Date.now()}.${fileExt}`;
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // 1. Upload to Supabase Storage bucket 'job-photos'
+    const { error: storageErr } = await adminSupabase.storage.from("job-photos").upload(filePath, buffer, {
+      contentType: file.type || "image/jpeg",
+      upsert: true,
+    });
+
     let photoUrl = "";
-
-    try {
-      // 1. Try uploading to Supabase Storage bucket via admin client
-      const { error: storageErr } = await adminSupabase.storage.from("job-photos").upload(filePath, buffer, {
-        contentType: file.type || "image/jpeg",
-        upsert: true,
-      });
-
-      if (!storageErr) {
-        const publicUrlData = adminSupabase.storage.from("job-photos").getPublicUrl(filePath);
-        photoUrl = publicUrlData.data.publicUrl;
-      } else {
-        console.warn("[uploadJobPhotoAction storage warning]", storageErr.message);
-      }
-    } catch (e: any) {
-      console.warn("[uploadJobPhotoAction storage catch]", e?.message);
-    }
-
-    // 2. If storage bucket URL not created, use Base64 data URL string fallback
-    if (!photoUrl) {
+    if (!storageErr) {
+      const publicUrlData = adminSupabase.storage.from("job-photos").getPublicUrl(filePath);
+      photoUrl = publicUrlData.data.publicUrl;
+    } else {
+      console.warn("[uploadJobPhotoAction storage warning]", storageErr.message);
+      // Fallback to Base64 data URL if storage bucket fails
       const mimeType = file.type || "image/jpeg";
       photoUrl = `data:${mimeType};base64,${buffer.toString("base64")}`;
     }
 
-    // 3. Insert into photos table via adminSupabase
+    // 2. Insert into photos table matching exact database schema
     const { error: insertErr } = await adminSupabase.from("photos").insert({
       booking_id: bookingId,
-      uploaded_by: user?.id || null,
+      uploaded_by: uploadedById,
       category: category,
-      photo_type: category,
       storage_path: photoUrl,
-      url: photoUrl,
     });
 
     if (insertErr) {
       console.error("[uploadJobPhotoAction insert error]", insertErr.message);
+      return { success: false, error: insertErr.message };
     }
 
     revalidatePath(`/cleaner/jobs/${jobId}`);

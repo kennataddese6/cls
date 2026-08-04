@@ -46,7 +46,7 @@ export async function signInAction(formData: { email: string; password: string }
 export async function signOutAction(): Promise<void> {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
-  redirect("/auth/v2/login");
+  redirect("/auth/v1/login");
 }
 
 export async function getCurrentUserProfile() {

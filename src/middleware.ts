@@ -20,7 +20,7 @@ export async function middleware(request: NextRequest) {
       if (process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("placeholder")) {
         return response;
       }
-      return NextResponse.redirect(new URL(`/auth/v2/login?next=${pathname}`, request.url));
+      return NextResponse.redirect(new URL(`/auth/v1/login?next=${pathname}`, request.url));
     }
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
       if (process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("placeholder")) {
         return response;
       }
-      return NextResponse.redirect(new URL(`/auth/v2/login?next=${pathname}`, request.url));
+      return NextResponse.redirect(new URL(`/auth/v1/login?next=${pathname}`, request.url));
     }
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();

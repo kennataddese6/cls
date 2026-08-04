@@ -1,43 +1,80 @@
 import Link from "next/link";
-
-import { Command } from "lucide-react";
-
+import Image from "next/image";
+import { Sparkles, ShieldCheck, ArrowLeft } from "lucide-react";
+import { APP_CONFIG } from "@/config/app-config";
 import { LoginForm } from "../../_components/login-form";
-import { GoogleButton } from "../../_components/social-auth/google-button";
 
 export default function LoginV1() {
   return (
-    <div className="flex h-dvh">
-      <div className="hidden bg-primary lg:block lg:w-1/3">
-        <div className="flex h-full flex-col items-center justify-center p-12 text-center">
-          <div className="space-y-6">
-            <Command className="mx-auto size-12 text-primary-foreground" />
-            <div className="space-y-2">
-              <h1 className="font-light text-5xl text-primary-foreground">Hello again</h1>
-              <p className="text-primary-foreground/80 text-xl">Login to continue</p>
+    <div className="flex h-screen w-full overflow-hidden bg-background">
+      {/* Left Panel: Hero Image & Branding */}
+      <div className="relative hidden lg:flex lg:w-1/2 flex-col justify-between p-12 text-white bg-neutral-900 overflow-hidden">
+        <Image
+          src="/images/login_hero.png"
+          alt="Professional Cleaning Service"
+          fill
+          priority
+          className="object-cover object-center opacity-40 mix-blend-overlay"
+        />
+
+        <div className="relative z-10 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg">
+              <Sparkles className="size-5" />
             </div>
+            <span className="font-bold text-xl tracking-tight">{APP_CONFIG.name}</span>
           </div>
+        </div>
+
+        <div className="relative z-10 max-w-lg space-y-4">
+          <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold uppercase tracking-wider">
+            <ShieldCheck className="size-4" /> Secure Staff & Admin Portal
+          </div>
+          <h2 className="text-3xl font-bold leading-tight">Streamlining Operations & Excellence in Every Clean.</h2>
+          <p className="text-sm text-neutral-300 leading-relaxed">
+            Manage customer enquiries, quotations, job assignments, and photo evidence reviews in one unified portal.
+          </p>
+        </div>
+
+        <div className="relative z-10 flex justify-between items-center text-xs text-neutral-400 border-t border-white/10 pt-6">
+          <span>{APP_CONFIG.copyright}</span>
+          <Link href="/" className="hover:text-white transition-colors flex items-center gap-1">
+            <ArrowLeft className="size-3.5" /> Back to Website
+          </Link>
         </div>
       </div>
 
-      <div className="flex w-full items-center justify-center bg-background p-8 lg:w-2/3">
-        <div className="w-full max-w-md space-y-10 py-24 lg:py-32">
-          <div className="space-y-4 text-center">
-            <div className="font-medium tracking-tight">Login</div>
-            <div className="mx-auto max-w-xl text-muted-foreground">
-              Welcome back. Enter your email and password, let&apos;s hope you remember them this time.
+      {/* Right Panel: Login Form */}
+      <div className="flex w-full lg:w-1/2 flex-col justify-between p-8 sm:p-12 lg:p-16">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2 lg:hidden">
+            <div className="size-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+              <Sparkles className="size-4" />
             </div>
+            <span className="font-bold text-base">{APP_CONFIG.name}</span>
           </div>
-          <div className="space-y-4">
-            <LoginForm />
-            <GoogleButton className="w-full" variant="outline" />
-            <p className="text-center text-muted-foreground text-xs">
-              Don&apos;t have an account?{" "}
-              <Link prefetch={false} href="register" className="text-primary">
-                Register
-              </Link>
+
+          <Link
+            href="/"
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 ml-auto"
+          >
+            <ArrowLeft className="size-3.5" /> Public Website
+          </Link>
+        </div>
+
+        <div className="mx-auto w-full max-w-sm space-y-8 my-auto">
+          <div className="space-y-2 text-center lg:text-left">
+            <h1 className="text-3xl font-bold tracking-tight">Sign in to Account</h1>
+            <p className="text-sm text-muted-foreground">
+              Enter your official email address and password to access your dashboard.
             </p>
           </div>
+
+          <LoginForm />
+        </div>
+
+        <div className="text-center text-xs text-muted-foreground">
+          {APP_CONFIG.copyright} • Authorized Personnel Only
         </div>
       </div>
     </div>

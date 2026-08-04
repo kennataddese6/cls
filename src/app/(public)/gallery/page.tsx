@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { ArrowRight, Camera, Sparkles } from "lucide-react";
 
@@ -11,26 +12,16 @@ export default function GalleryPage() {
     {
       title: "Kitchen Oven Deep Clean",
       category: "Deep Clean",
+      image: "/images/oven_clean.png",
       before: "Heavy grease accumulation and burnt-on carbon residue.",
       after: "Immaculate, restored stainless steel finish and crystal clear glass door.",
     },
     {
       title: "Bathroom Tile & Grout Restoration",
       category: "End of Tenancy",
+      image: "/images/clean_home.png",
       before: "Limescale buildup and mold staining on shower tiles.",
       after: "Disinfected, brilliant white grout and limescale-free glass screen.",
-    },
-    {
-      title: "Living Room Carpet Steam Clean",
-      category: "Carpet Clean",
-      before: "Visible traffic lane dirt and stubborn stain marks.",
-      after: "Freshly extracted, plush carpet free of odors and deep stains.",
-    },
-    {
-      title: "Commercial Office Kitchen",
-      category: "Office Clean",
-      before: "Cluttered, dirty counter surfaces and stained sink area.",
-      after: "Sanitised, organized communal kitchen ready for workday use.",
     },
   ];
 
@@ -50,8 +41,14 @@ export default function GalleryPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {galleryItems.map((item, idx) => (
           <Card key={idx} className="overflow-hidden border-border">
+            <div className="relative h-56 w-full overflow-hidden">
+              <Image src={item.image} alt={item.title} fill className="object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-4">
+                <span className="font-bold text-white text-base">{item.title}</span>
+              </div>
+            </div>
             <div className="p-4 bg-muted/40 border-b border-border flex items-center justify-between">
-              <span className="font-semibold text-base">{item.title}</span>
+              <span className="text-xs text-muted-foreground">Category</span>
               <Badge variant="secondary">{item.category}</Badge>
             </div>
             <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">

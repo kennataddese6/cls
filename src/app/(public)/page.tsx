@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import {
   ArrowRight,
@@ -144,37 +145,50 @@ export default function LandingPage() {
             </div>
 
             <div className="lg:col-span-5 relative">
-              <div className="relative mx-auto max-w-md lg:max-w-none rounded-2xl bg-card border border-border p-6 shadow-xl space-y-6">
-                <div className="flex items-center justify-between border-b border-border pb-4">
-                  <div>
-                    <h3 className="font-semibold text-lg">Instant Quote Request</h3>
-                    <p className="text-xs text-muted-foreground">Get a clear price estimate today</p>
-                  </div>
-                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Fast 24h Response</Badge>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
-                    <CheckCircle2 className="size-5 text-primary shrink-0" />
-                    <span className="text-sm font-medium">Select Domestic or Commercial Cleaning</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
-                    <CheckCircle2 className="size-5 text-primary shrink-0" />
-                    <span className="text-sm font-medium">Receive Itemised Official Quotation</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
-                    <CheckCircle2 className="size-5 text-primary shrink-0" />
-                    <span className="text-sm font-medium">Assigned Verified Local Cleaner</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
-                    <CheckCircle2 className="size-5 text-primary shrink-0" />
-                    <span className="text-sm font-medium">Review Before & After Work Photos</span>
+              <div className="relative mx-auto max-w-md lg:max-w-none rounded-3xl overflow-hidden border border-border shadow-2xl space-y-0 bg-card">
+                <div className="relative h-64 sm:h-72 w-full overflow-hidden">
+                  <Image
+                    src="/images/clean_home.png"
+                    alt="Pristine Modern Home Interior"
+                    fill
+                    priority
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-6">
+                    <Badge className="bg-emerald-500 text-white font-semibold">100% Quality Guaranteed</Badge>
                   </div>
                 </div>
 
-                <Button className="w-full h-11 text-base font-medium" asChild>
-                  <Link href="/book">Start Request Form</Link>
-                </Button>
+                <div className="p-6 space-y-4">
+                  <div className="flex items-center justify-between border-b border-border pb-3">
+                    <div>
+                      <h3 className="font-semibold text-lg">Instant Quote Request</h3>
+                      <p className="text-xs text-muted-foreground">Get a clear price estimate today</p>
+                    </div>
+                    <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                      Fast 24h Response
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2.5 text-xs font-medium">
+                      <CheckCircle2 className="size-4 text-primary shrink-0" />
+                      <span>Domestic, Deep & Commercial Cleaning</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-xs font-medium">
+                      <CheckCircle2 className="size-4 text-primary shrink-0" />
+                      <span>Itemised Official Quotations & Invoices</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-xs font-medium">
+                      <CheckCircle2 className="size-4 text-primary shrink-0" />
+                      <span>Before & After Photo Evidence Report</span>
+                    </div>
+                  </div>
+
+                  <Button className="w-full h-11 text-base font-medium" asChild>
+                    <Link href="/book">Start Request Form</Link>
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

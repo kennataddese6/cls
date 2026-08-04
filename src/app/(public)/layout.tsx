@@ -6,6 +6,7 @@ import { ArrowRight, Clock, Mail, Phone, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { APP_CONFIG } from "@/config/app-config";
+import { CustomerFloatingWidget } from "@/components/customer/customer-floating-widget";
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
@@ -170,6 +171,9 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </footer>
+
+      {/* Floating Bottom-Right Customer Booking & Support Sheet Widget */}
+      <CustomerFloatingWidget />
     </div>
   );
 }

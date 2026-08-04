@@ -1,6 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, Phone, User, Calendar, Clock, Camera, CheckCircle2, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  MapPin,
+  Phone,
+  User,
+  Calendar,
+  Clock,
+  Camera,
+  CheckCircle2,
+  ShieldCheck,
+  ReceiptText,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -160,6 +171,47 @@ export default async function CleanerJobDetailPage({ params }: { params: Promise
           )}
         </CardContent>
       </Card>
+
+      {/* Invoice & Payment Information Card */}
+      {job.booking?.invoices?.[0] && (
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <ReceiptText className="size-4 text-primary" /> Invoice & Payment Status
+              </span>
+              <Badge
+                variant={job.booking.invoices[0].status === "paid" ? "default" : "outline"}
+                className={
+                  job.booking.invoices[0].status === "paid"
+                    ? "bg-emerald-600 text-white"
+                    : "border-amber-500 text-amber-600 font-bold"
+                }
+              >
+                {job.booking.invoices[0].status?.toUpperCase()}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs">
+            <div className="grid grid-cols-2 gap-4 p-3 rounded-lg bg-muted/40 border border-border">
+              <div>
+                <span className="text-muted-foreground">Invoice Reference:</span>
+                <p className="font-mono font-bold text-foreground mt-0.5">{job.booking.invoices[0].invoice_number}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Job Total Amount:</span>
+                <p className="font-bold text-primary text-sm mt-0.5">£{job.booking.invoices[0].total?.toFixed(2)}</p>
+              </div>
+            </div>
+
+            <Button variant="outline" size="sm" className="w-full gap-1.5" asChild>
+              <Link href={`/i/${job.booking.invoices[0].token}`}>
+                <ReceiptText className="size-3.5 text-primary" /> View Customer Invoice Document
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Action Controls */}
       <Card className="border-border">

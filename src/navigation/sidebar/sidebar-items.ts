@@ -10,6 +10,7 @@ import {
   type LucideIcon,
   ReceiptText,
   Sparkles,
+  Star,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -113,6 +114,12 @@ export const sidebarItems: NavGroup[] = [
         title: "Services & Pricing",
         url: "/dashboard/services",
         icon: Sparkles,
+      },
+      {
+        id: "reviews",
+        title: "Customer Reviews",
+        url: "/dashboard/reviews",
+        icon: Star,
       },
       {
         id: "payments",

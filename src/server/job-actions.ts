@@ -537,33 +537,34 @@ export async function getJobById(id: string) {
   const supabase = await createSupabaseServerClient();
 
   // Try querying by job id
-  const { data: job } = await supabase
+  const adminSupabase = createSupabaseAdminClient();
+  const { data: job } = await adminSupabase
     .from("jobs")
     .select(
-      "*, cleaner:cleaners(*, profile:profiles(*)), booking:bookings(*, customer:customers(*), address:customer_addresses(*), photos(*))",
+      "*, cleaner:cleaners(*, profile:profiles(*)), booking:bookings(*, customer:customers(*), address:customer_addresses(*), photos(*), invoices(*))",
     )
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (job) return job;
 
   // Try querying by booking id
-  const { data: jobByBooking } = await supabase
+  const { data: jobByBooking } = await adminSupabase
     .from("jobs")
     .select(
-      "*, cleaner:cleaners(*, profile:profiles(*)), booking:bookings(*, customer:customers(*), address:customer_addresses(*), photos(*))",
+      "*, cleaner:cleaners(*, profile:profiles(*)), booking:bookings(*, customer:customers(*), address:customer_addresses(*), photos(*), invoices(*))",
     )
     .eq("booking_id", id)
-    .single();
+    .maybeSingle();
 
   if (jobByBooking) return jobByBooking;
 
   // Otherwise check if booking exists and return pending wrapper
-  const { data: booking } = await supabase
+  const { data: booking } = await adminSupabase
     .from("bookings")
-    .select("*, customer:customers(*), address:customer_addresses(*), photos(*)")
+    .select("*, customer:customers(*), address:customer_addresses(*), photos(*), invoices(*)")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (!booking) return null;
 

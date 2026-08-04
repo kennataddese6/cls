@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Sparkles, Calendar, Clock, MapPin, CheckCircle2, ShieldCheck, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { APP_CONFIG } from "@/config/app-config";
 
 import { getQuoteByToken } from "@/server/quote-actions";
@@ -39,15 +41,30 @@ export default async function CustomerQuotePage({ params }: { params: Promise<{ 
 
         {/* Status Notification if Already Accepted */}
         {isAccepted && (
-          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 flex items-center gap-3">
-            <CheckCircle2 className="size-6 text-emerald-600 shrink-0" />
-            <div>
-              <p className="font-semibold text-sm">Quotation Accepted!</p>
-              <p className="text-xs">
-                Thank you! You accepted this quotation on {new Date(quote.accepted_at).toLocaleDateString()}. Your
-                invoice has been generated.
-              </p>
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="size-6 text-emerald-600 shrink-0" />
+              <div>
+                <p className="font-semibold text-sm">Quotation Accepted!</p>
+                <p className="text-xs">
+                  Thank you! You accepted this quotation on {new Date(quote.accepted_at).toLocaleDateString()}. Your
+                  invoice has been generated.
+                </p>
+              </div>
             </div>
+
+            {quote.booking?.invoices?.[0]?.token && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-emerald-600 text-white hover:bg-emerald-700 border-none shrink-0 font-semibold"
+                asChild
+              >
+                <Link href={`/i/${quote.booking.invoices[0].token}`}>
+                  <FileText className="size-3.5 mr-1" /> View Invoice
+                </Link>
+              </Button>
+            )}
           </div>
         )}
 

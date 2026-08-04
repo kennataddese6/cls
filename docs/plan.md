@@ -277,29 +277,31 @@ Payments
 
 ## Status
 
-- [ ] Update `sidebar-items.ts` for CLS admin navigation
-- [ ] Admin overview page (`/dashboard/overview`)
-- [ ] KPI cards: new enquiries, quotes awaiting, today's jobs, unassigned, overdue invoices
-- [ ] Recent activity feed
-- [ ] Upcoming jobs widget
+- [x] Update `sidebar-items.ts` for CLS admin navigation
+- [x] Admin overview page (`/dashboard/overview`)
+- [x] KPI cards: new enquiries, quotes awaiting, today's jobs, unassigned, overdue invoices
+- [x] Recent activity & enquiries feed
+- [x] Quick workflow actions widget
 
 ---
 
 # Phase 5 — Enquiries & Customer Management
 
-**Objective:** Give admins the ability to view, search, filter, and manage customer enquiries (bookings in New Enquiry / Under Review status).
+**Objective:** Give admins the ability to view, search, filter, and manage customer enquiries (bookings in `New Enquiry` / `Under Review` status).
 
 **Estimated Complexity:** Medium
 **Dependencies:** Phase 4
 
-## Pages
+## Status
 
-| Route | Description |
-|---|---|
-| `/dashboard/enquiries` | Enquiries list with filters |
-| `/dashboard/enquiries/[id]` | Enquiry detail view |
-| `/dashboard/customers` | Customer list |
-| `/dashboard/customers/[id]` | Customer detail + booking history |
+- [x] Enquiries list page with search + filter (`/dashboard/enquiries`)
+- [x] Enquiry detail page (`/dashboard/enquiries/[id]`)
+- [x] Photo gallery & specification panel in enquiry detail
+- [x] Status timeline & audit log component
+- [x] Status update actions (`EnquiryActionsBar` — Mark Under Review, Reject)
+- [x] Create Quote action trigger (links to Phase 6)
+- [x] Customers list page (`/dashboard/customers`)
+- [x] Customer detail page with property addresses & booking history (`/dashboard/customers/[id]`)
 
 ## Enquiry Detail Features
 

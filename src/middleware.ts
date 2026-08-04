@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server";
-
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
@@ -13,13 +12,25 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Log all navigation requests through middleware
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/cleaner") || pathname.startsWith("/unauthorized")) {
+    console.log("[Middleware]", {
+      pathname,
+      hasUser: !!user,
+      userId: user?.id,
+      email: user?.email,
+      user_metadata: user?.user_metadata,
+      app_metadata: user?.app_metadata,
+    });
+  }
+
   // Route guards
   if (pathname.startsWith("/dashboard")) {
     if (!user) {
-      // For development/mocking when Supabase isn't configured, allow pass-through if URL is placeholder
       if (process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("placeholder")) {
         return response;
       }
+      console.log("[Middleware] Unauthenticated user accessing dashboard -> Redirecting to login");
       return NextResponse.redirect(new URL(`/auth/v1/login?next=${pathname}`, request.url));
     }
 
@@ -31,8 +42,11 @@ export async function middleware(request: NextRequest) {
       role = profile?.role;
     }
 
+    console.log("[Middleware] Dashboard route check. Resolved role:", role);
+
     // If role is explicitly cleaner or customer, deny admin access
     if (role === "cleaner" || role === "customer") {
+      console.warn("[Middleware] Access denied for role:", role, "on route:", pathname);
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
   }
@@ -53,6 +67,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (role !== "cleaner" && role !== "admin") {
+      console.warn("[Middleware] Cleaner access denied for role:", role, "on route:", pathname);
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
   }

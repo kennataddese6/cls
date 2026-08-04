@@ -23,9 +23,16 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(`/auth/v1/login?next=${pathname}`, request.url));
     }
 
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    // Determine user role from JWT metadata or database profile
+    let role = user.user_metadata?.role || user.app_metadata?.role;
 
-    if (profile?.role !== "admin") {
+    if (!role) {
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      role = profile?.role;
+    }
+
+    // If role is explicitly cleaner or customer, deny admin access
+    if (role === "cleaner" || role === "customer") {
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
   }
@@ -38,9 +45,14 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(`/auth/v1/login?next=${pathname}`, request.url));
     }
 
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    let role = user.user_metadata?.role || user.app_metadata?.role;
 
-    if (profile?.role !== "cleaner") {
+    if (!role) {
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      role = profile?.role;
+    }
+
+    if (role !== "cleaner" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
   }

@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   type LucideIcon,
   ReceiptText,
+  Sparkles,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -106,6 +107,12 @@ export const sidebarItems: NavGroup[] = [
         title: "Customers",
         url: "/dashboard/customers",
         icon: Users,
+      },
+      {
+        id: "services",
+        title: "Services & Pricing",
+        url: "/dashboard/services",
+        icon: Sparkles,
       },
       {
         id: "payments",

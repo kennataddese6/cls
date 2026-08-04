@@ -1,6 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { saveCustomerBookingCookieAction } from "@/server/booking-tracker-actions";
 
 export interface BookingSubmissionValues {
   service_type: "standard" | "deep" | "end_of_tenancy" | "office" | "commercial" | "carpet";
@@ -103,12 +104,17 @@ export async function submitBookingAction(values: BookingSubmissionValues): Prom
         key_arrangements: values.key_arrangements,
         customer_notes: values.customer_notes,
       })
-      .select("id, reference")
+      .select("id, reference, token")
       .single();
 
     if (bookingErr || !bookingRecord) {
       throw new Error(bookingErr?.message || "Failed to create booking enquiry");
     }
+
+    // Save booking reference to customer's browser cookie for live tracking
+    try {
+      await saveCustomerBookingCookieAction(bookingRecord.token || bookingRecord.reference, bookingRecord.reference);
+    } catch {}
 
     // 4. Log audit log
     await supabase.from("audit_logs").insert({

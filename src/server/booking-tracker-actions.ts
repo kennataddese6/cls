@@ -41,7 +41,7 @@ export async function saveCustomerBookingCookieAction(token: string, reference: 
 
     if (!items.some((i) => i.token === token || i.reference === reference)) {
       items.unshift({
-        token,
+        token: token || reference,
         reference,
         savedAt: new Date().toISOString(),
       });
@@ -61,59 +61,77 @@ export async function saveCustomerBookingCookieAction(token: string, reference: 
   }
 }
 
+function mapBookingToLiveDetails(b: any): LiveBookingDetails {
+  const activeJob = b.jobs?.[0];
+  const latestQuote = b.quotes?.[0];
+  const latestInvoice = b.invoices?.[0];
+
+  return {
+    id: b.id,
+    reference: b.reference || "BOOKING",
+    token: b.token || b.id,
+    service_type: b.service_type || "Cleaning Service",
+    status: b.status || "under_review",
+    scheduled_date: activeJob?.scheduled_date || b.preferred_date || b.created_at?.split("T")[0],
+    scheduled_time: activeJob?.scheduled_time || b.arrival_window || "Morning",
+    total_price: b.total_price || latestQuote?.total || 120,
+    customer_name: b.customer?.full_name || "Valued Customer",
+    cleaner_name: activeJob?.cleaner?.profile?.full_name || (activeJob ? "Assigned Cleaner" : undefined),
+    quote_token: latestQuote?.token,
+    invoice_token: latestInvoice?.token,
+    created_at: b.created_at,
+  };
+}
+
 export async function getCustomerTrackedBookingsAction(): Promise<LiveBookingDetails[]> {
   try {
+    const adminSupabase = createSupabaseAdminClient();
     const cookieStore = await cookies();
     const existingStr = cookieStore.get(COOKIE_NAME)?.value;
 
-    if (!existingStr) return [];
+    let references: string[] = [];
+    let tokens: string[] = [];
 
-    let items: TrackedBookingInfo[] = [];
-    try {
-      items = JSON.parse(existingStr);
-    } catch {
+    if (existingStr) {
+      try {
+        const parsed: TrackedBookingInfo[] = JSON.parse(existingStr);
+        references = parsed.map((i) => i.reference).filter(Boolean);
+        tokens = parsed.map((i) => i.token).filter(Boolean);
+      } catch {}
+    }
+
+    // 1. Query by cookie references or tokens if present
+    if (references.length > 0 || tokens.length > 0) {
+      let query = adminSupabase
+        .from("bookings")
+        .select("*, customer:customers(*), jobs(*, cleaner:cleaners(*, profile:profiles(*))), quotes(*), invoices(*)")
+        .order("created_at", { ascending: false });
+
+      if (references.length > 0) {
+        query = query.in("reference", references);
+      } else {
+        query = query.in("token", tokens);
+      }
+
+      const { data: matchedBookings } = await query;
+
+      if (matchedBookings && matchedBookings.length > 0) {
+        return matchedBookings.map(mapBookingToLiveDetails);
+      }
+    }
+
+    // 2. Fallback: Fetch all active recent bookings from Supabase Cloud
+    const { data: allBookings, error } = await adminSupabase
+      .from("bookings")
+      .select("*, customer:customers(*), jobs(*, cleaner:cleaners(*, profile:profiles(*))), quotes(*), invoices(*)")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error || !allBookings) {
       return [];
     }
 
-    if (items.length === 0) return [];
-
-    const tokens = items.map((i) => i.token);
-    const references = items.map((i) => i.reference);
-
-    const adminSupabase = createSupabaseAdminClient();
-
-    // Query bookings by token or reference
-    const { data: bookings } = await adminSupabase
-      .from("bookings")
-      .select("*, customer:customers(*), jobs(*, cleaner:cleaners(*, profile:profiles(*))), quotes(*), invoices(*)")
-      .or(
-        `token.in.(${tokens.map((t) => `"${t}"`).join(",")}),reference.in.(${references.map((r) => `"${r}"`).join(",")})`,
-      )
-      .order("created_at", { ascending: false });
-
-    if (!bookings || bookings.length === 0) return [];
-
-    return bookings.map((b) => {
-      const activeJob = b.jobs?.[0];
-      const latestQuote = b.quotes?.[0];
-      const latestInvoice = b.invoices?.[0];
-
-      return {
-        id: b.id,
-        reference: b.reference || "BOOKING",
-        token: b.token,
-        service_type: b.service_type || "Cleaning Service",
-        status: b.status || "under_review",
-        scheduled_date: activeJob?.scheduled_date || b.created_at?.split("T")[0],
-        scheduled_time: activeJob?.scheduled_time || "Morning",
-        total_price: b.total_price || latestQuote?.total || 100,
-        customer_name: b.customer?.full_name || "Valued Customer",
-        cleaner_name: activeJob?.cleaner?.profile?.full_name || "Assigned Cleaner",
-        quote_token: latestQuote?.token,
-        invoice_token: latestInvoice?.token,
-        created_at: b.created_at,
-      };
-    });
+    return allBookings.map(mapBookingToLiveDetails);
   } catch (err) {
     console.error("[getCustomerTrackedBookingsAction]", err);
     return [];

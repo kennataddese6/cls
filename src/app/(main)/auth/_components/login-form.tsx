@@ -38,15 +38,12 @@ export function LoginForm() {
     setLoading(true);
     try {
       const res = await signInAction({ email: data.email, password: data.password });
-      if (!res.success) {
+      if (res && !res.success) {
         toast.error(res.error);
-        return;
+        setLoading(false);
       }
-      toast.success("Login successful!");
-      router.push(res.redirectUrl);
     } catch {
-      toast.error("Failed to sign in");
-    } finally {
+      toast.error("Failed to sign in. Please check your credentials.");
       setLoading(false);
     }
   }

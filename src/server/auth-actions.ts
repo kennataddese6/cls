@@ -1,7 +1,7 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export type AuthActionResult =
   | { success: true; role: "admin" | "cleaner" | "customer"; redirectUrl: string }
@@ -17,7 +17,7 @@ export async function signInAction(formData: { email: string; password: string }
     });
 
     if (error || !data.user) {
-      console.error("[signInAction] Auth error:", error?.message);
+      console.error("[signInAction] Auth error:", error?.message, data, error);
       return { success: false, error: error?.message || "Invalid email or password" };
     }
 

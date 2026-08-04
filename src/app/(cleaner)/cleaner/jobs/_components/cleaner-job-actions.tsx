@@ -12,9 +12,12 @@ import { updateCleanerJobStatusAction } from "@/server/job-actions";
 interface Props {
   jobId: string;
   bookingStatus: string;
+  acceptedAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
 }
 
-export function CleanerJobActions({ jobId, bookingStatus }: Props) {
+export function CleanerJobActions({ jobId, bookingStatus, acceptedAt, startedAt, completedAt }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [cleanerNotes, setCleanerNotes] = useState("");
@@ -50,11 +53,24 @@ export function CleanerJobActions({ jobId, bookingStatus }: Props) {
     }
   };
 
-  const isAssigned = bookingStatus === "cleaner_assigned";
-  const isAccepted = bookingStatus === "cleaner_accepted";
-  const isInProgress = bookingStatus === "in_progress";
-  const isPendingReview = bookingStatus === "completed_pending_review";
-  const isCompleted = bookingStatus === "completed" || bookingStatus === "paid";
+  // Explicit lifecycle state resolution
+  let effectiveStatus = "assigned";
+
+  if (completedAt || bookingStatus === "completed_pending_review" || bookingStatus === "completed") {
+    effectiveStatus = bookingStatus === "completed" ? "closed" : "completed_pending_review";
+  } else if (startedAt || bookingStatus === "in_progress") {
+    effectiveStatus = "in_progress";
+  } else if (acceptedAt || bookingStatus === "cleaner_accepted") {
+    effectiveStatus = "accepted";
+  } else {
+    effectiveStatus = "assigned";
+  }
+
+  const isAssigned = effectiveStatus === "assigned";
+  const isAccepted = effectiveStatus === "accepted";
+  const isInProgress = effectiveStatus === "in_progress";
+  const isPendingReview = effectiveStatus === "completed_pending_review";
+  const isCompleted = effectiveStatus === "closed";
 
   return (
     <div className="space-y-4 pt-4 border-t border-border">
@@ -79,17 +95,27 @@ export function CleanerJobActions({ jobId, bookingStatus }: Props) {
       )}
 
       {isAccepted && (
-        <Button
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2 h-12 text-base font-semibold"
-          onClick={() => handleAction("start")}
-          disabled={loading}
-        >
-          <Play className="size-5" /> Start Job Now
-        </Button>
+        <div className="space-y-3">
+          <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-700 text-xs flex items-center gap-2 font-medium">
+            <CheckCircle2 className="size-4 text-blue-600 shrink-0" />
+            Job accepted! Click below when you arrive at the property to start work.
+          </div>
+          <Button
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2 h-12 text-base font-semibold"
+            onClick={() => handleAction("start")}
+            disabled={loading}
+          >
+            <Play className="size-5" /> Start Job Now
+          </Button>
+        </div>
       )}
 
       {isInProgress && (
         <div className="space-y-3">
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 text-xs flex items-center gap-2 font-medium">
+            <Play className="size-4 text-amber-600 shrink-0" />
+            Job is currently in progress. Upload evidence photos above before completing.
+          </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Completion Notes for Admin</label>
             <Textarea

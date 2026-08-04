@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, User, Mail, Phone, MapPin, Briefcase, Eye } from "lucide-react";
+import { ArrowLeft, User, Mail, Phone, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 import { getCleanerById } from "@/server/job-actions";
+import { EditCleanerDialog } from "./_components/edit-cleaner-dialog";
+import { DeleteCleanerButton } from "./_components/delete-cleaner-button";
+import { ResetPasswordDialog } from "./_components/reset-password-dialog";
 
 export default async function CleanerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,6 +17,27 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
   if (!cleaner) {
     notFound();
   }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "available":
+        return (
+          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+            Available
+          </Badge>
+        );
+      case "busy":
+        return (
+          <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
+            Busy
+          </Badge>
+        );
+      case "inactive":
+        return <Badge variant="outline">Inactive</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -25,9 +49,30 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{cleaner.profile?.full_name}</h1>
-            <p className="text-xs text-muted-foreground">Cleaner ID: {cleaner.id}</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight">{cleaner.profile?.full_name || "Cleaner Profile"}</h1>
+              {getStatusBadge(cleaner.status)}
+            </div>
+            <p className="text-xs text-muted-foreground font-mono">Cleaner ID: {cleaner.id}</p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <ResetPasswordDialog cleanerId={cleaner.id} cleanerName={cleaner.profile?.full_name || "Cleaner"} />
+          <EditCleanerDialog
+            cleaner={{
+              id: cleaner.id,
+              fullName: cleaner.profile?.full_name || "",
+              phone: cleaner.profile?.phone || "",
+              cleanerType: cleaner.cleaner_type,
+              companyName: cleaner.company_name || "",
+              address: cleaner.address || "",
+              serviceAreas: cleaner.service_areas?.join(", ") || "",
+              status: cleaner.status,
+              notes: cleaner.notes || "",
+            }}
+          />
+          <DeleteCleanerButton cleanerId={cleaner.id} cleanerName={cleaner.profile?.full_name || "Cleaner"} />
         </div>
       </div>
 
@@ -44,7 +89,7 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
               <div>
                 <span className="text-xs text-muted-foreground">Email:</span>
                 <p className="font-medium flex items-center gap-1.5 mt-0.5">
-                  <Mail className="size-3.5 text-muted-foreground" /> {cleaner.profile?.email}
+                  <Mail className="size-3.5 text-muted-foreground" /> {cleaner.profile?.email || "Not provided"}
                 </p>
               </div>
 
@@ -56,7 +101,7 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
               </div>
 
               <div>
-                <span className="text-xs text-muted-foreground">Type:</span>
+                <span className="text-xs text-muted-foreground">Cleaner Type:</span>
                 <p className="font-medium capitalize mt-0.5">
                   {cleaner.cleaner_type} {cleaner.company_name ? `(${cleaner.company_name})` : ""}
                 </p>
@@ -66,6 +111,15 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
                 <span className="text-xs text-muted-foreground">Service Areas:</span>
                 <p className="font-medium mt-0.5">{cleaner.service_areas?.join(", ") || "General"}</p>
               </div>
+
+              {cleaner.notes && (
+                <div>
+                  <span className="text-xs text-muted-foreground">Internal Notes:</span>
+                  <p className="font-medium text-xs mt-0.5 p-2.5 rounded-lg bg-muted/40 border border-border">
+                    {cleaner.notes}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

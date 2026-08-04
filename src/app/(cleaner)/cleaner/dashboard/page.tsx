@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-import { getJobsList } from "@/server/job-actions";
+import { getCleanerAssignedJobs } from "@/server/job-actions";
 
 export default async function CleanerDashboardPage() {
-  const jobs = await getJobsList();
+  const jobs = await getCleanerAssignedJobs();
 
   const getStatusBadge = (status: string) => {
     switch (status) {

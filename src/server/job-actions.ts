@@ -1,6 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 
 export interface CreateCleanerInput {
@@ -23,6 +24,8 @@ export async function createCleanerAccountAction(input: CreateCleanerInput) {
 
     if (!adminUser) throw new Error("Unauthorized: Admin login required");
 
+    const adminSupabase = createSupabaseAdminClient();
+
     // Generate random strong password
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*";
     let autoPassword = "";
@@ -30,72 +33,70 @@ export async function createCleanerAccountAction(input: CreateCleanerInput) {
       autoPassword += chars.charAt(Math.floor(Math.random() * chars.length));
     }
 
-    // Create Supabase Auth User with service role or auth signup
-    let cleanerId: string | null = null;
+    let cleanerId: string;
 
-    const { data: authUser, error: authErr } = await supabase.auth.signUp({
+    // Use Admin Client to create a pre-confirmed user
+    const { data: newUser, error: createErr } = await adminSupabase.auth.admin.createUser({
       email: input.email,
       password: autoPassword,
-      options: {
-        data: {
-          role: "cleaner",
-          full_name: input.full_name,
-        },
+      email_confirm: true,
+      user_metadata: {
+        role: "cleaner",
+        full_name: input.full_name,
       },
     });
 
-    if (authUser?.user) {
-      cleanerId = authUser.user.id;
-    } else if (authErr && authErr.message.includes("already registered")) {
-      // Find existing profile or profile ID
-      const { data: existingProfile } = await supabase.from("profiles").select("id").eq("email", input.email).single();
+    if (newUser?.user) {
+      cleanerId = newUser.user.id;
+    } else if (createErr && createErr.message.includes("already registered")) {
+      // Fetch existing user ID and update password
+      const { data: userList } = await adminSupabase.auth.admin.listUsers();
+      const existingUser = userList?.users.find((u) => u.email === input.email);
 
-      if (existingProfile) {
-        cleanerId = existingProfile.id;
-      } else {
-        // Find in profiles by email or query
-        const { data: searchProfile } = await supabase.from("profiles").select("id").limit(1).single();
-        cleanerId = searchProfile?.id || null;
-      }
+      if (!existingUser) throw new Error("User registered but ID not found");
+      cleanerId = existingUser.id;
+
+      // Update password & metadata for existing cleaner
+      await adminSupabase.auth.admin.updateUserById(cleanerId, {
+        password: autoPassword,
+        email_confirm: true,
+        user_metadata: { role: "cleaner", full_name: input.full_name },
+      });
+    } else {
+      throw new Error(createErr?.message || "Failed to create cleaner account");
     }
 
-    if (!cleanerId && authErr) {
-      throw new Error(authErr.message || "Failed to create cleaner auth account");
-    }
+    // Upsert into profiles table
+    await supabase.from("profiles").upsert({
+      id: cleanerId,
+      role: "cleaner",
+      full_name: input.full_name,
+      email: input.email,
+      phone: input.phone,
+    });
 
-    if (cleanerId) {
-      // Insert or update profiles table
-      await supabase.from("profiles").upsert({
-        id: cleanerId,
-        role: "cleaner",
-        full_name: input.full_name,
-        phone: input.phone,
-        email: input.email,
-      });
+    // Upsert into cleaners table
+    const serviceAreasArray = input.service_areas ? input.service_areas.split(",").map((s) => s.trim()) : ["General"];
 
-      // Insert into cleaners table
-      const serviceAreasArray = input.service_areas ? input.service_areas.split(",").map((s) => s.trim()) : ["General"];
+    await supabase.from("cleaners").upsert({
+      id: cleanerId,
+      cleaner_type: input.cleaner_type,
+      company_name: input.company_name || null,
+      address: input.address || null,
+      service_areas: serviceAreasArray,
+      status: "available",
+      notes: input.notes || null,
+    });
 
-      await supabase.from("cleaners").upsert({
-        id: cleanerId,
-        cleaner_type: input.cleaner_type,
-        company_name: input.company_name || null,
-        address: input.address || null,
-        service_areas: serviceAreasArray,
-        status: "available",
-        notes: input.notes || null,
-      });
-
-      // Audit log
-      await supabase.from("audit_logs").insert({
-        actor_id: adminUser.id,
-        actor_role: "admin",
-        action: "cleaner.created",
-        record_type: "cleaners",
-        record_id: cleanerId,
-        new_value: { email: input.email, full_name: input.full_name },
-      });
-    }
+    // Audit log
+    await supabase.from("audit_logs").insert({
+      actor_id: adminUser.id,
+      actor_role: "admin",
+      action: "cleaner.created",
+      record_type: "cleaners",
+      record_id: cleanerId,
+      new_value: { email: input.email, full_name: input.full_name },
+    });
 
     revalidatePath("/dashboard/cleaners");
 
@@ -112,6 +113,140 @@ export async function createCleanerAccountAction(input: CreateCleanerInput) {
   }
 }
 
+export async function updateCleanerAction(input: {
+  id: string;
+  full_name: string;
+  phone: string;
+  cleaner_type: "individual" | "company";
+  company_name?: string;
+  address?: string;
+  service_areas?: string;
+  status: "available" | "busy" | "inactive";
+  notes?: string;
+}) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user: adminUser },
+    } = await supabase.auth.getUser();
+
+    if (!adminUser) throw new Error("Unauthorized");
+
+    // Update profile
+    await supabase
+      .from("profiles")
+      .update({
+        full_name: input.full_name,
+        phone: input.phone,
+      })
+      .eq("id", input.id);
+
+    // Update cleaner record
+    const serviceAreasArray = input.service_areas ? input.service_areas.split(",").map((s) => s.trim()) : ["General"];
+
+    await supabase
+      .from("cleaners")
+      .update({
+        cleaner_type: input.cleaner_type,
+        company_name: input.company_name || null,
+        address: input.address || null,
+        service_areas: serviceAreasArray,
+        status: input.status,
+        notes: input.notes || null,
+      })
+      .eq("id", input.id);
+
+    revalidatePath(`/dashboard/cleaners/${input.id}`);
+    revalidatePath("/dashboard/cleaners");
+
+    return { success: true };
+  } catch (err: unknown) {
+    console.error("[updateCleanerAction]", err);
+    const errorMessage = err instanceof Error ? err.message : "Failed to update cleaner";
+    return { success: false, error: errorMessage };
+  }
+}
+
+export async function deleteCleanerAction(cleanerId: string) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user: adminUser },
+    } = await supabase.auth.getUser();
+
+    if (!adminUser) throw new Error("Unauthorized");
+
+    const adminSupabase = createSupabaseAdminClient();
+
+    // Delete cleaner record
+    await supabase.from("cleaners").delete().eq("id", cleanerId);
+    await supabase.from("profiles").delete().eq("id", cleanerId);
+    await adminSupabase.auth.admin.deleteUser(cleanerId);
+
+    revalidatePath("/dashboard/cleaners");
+
+    return { success: true };
+  } catch (err: unknown) {
+    console.error("[deleteCleanerAction]", err);
+    const errorMessage = err instanceof Error ? err.message : "Failed to delete cleaner";
+    return { success: false, error: errorMessage };
+  }
+}
+
+export async function resetCleanerPasswordAction(cleanerId: string) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user: adminUser },
+    } = await supabase.auth.getUser();
+
+    if (!adminUser) throw new Error("Unauthorized");
+
+    const adminSupabase = createSupabaseAdminClient();
+
+    // Get cleaner profile
+    const { data: profile } = await supabase.from("profiles").select("email, full_name").eq("id", cleanerId).single();
+
+    if (!profile || !profile.email) throw new Error("Cleaner email not found");
+
+    // Generate random strong password
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*";
+    let newPassword = "";
+    for (let i = 0; i < 12; i++) {
+      newPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    // Update user password in auth schema
+    const { error: updateErr } = await adminSupabase.auth.admin.updateUserById(cleanerId, {
+      password: newPassword,
+      email_confirm: true,
+    });
+
+    if (updateErr) throw new Error(updateErr.message);
+
+    // Audit log
+    await supabase.from("audit_logs").insert({
+      actor_id: adminUser.id,
+      actor_role: "admin",
+      action: "cleaner.password_reset",
+      record_type: "cleaners",
+      record_id: cleanerId,
+      new_value: { email: profile.email },
+    });
+
+    return {
+      success: true,
+      email: profile.email,
+      fullName: profile.full_name,
+      newPassword,
+    };
+  } catch (err: unknown) {
+    console.error("[resetCleanerPasswordAction]", err);
+    const errorMessage = err instanceof Error ? err.message : "Failed to reset cleaner password";
+    return { success: false, error: errorMessage };
+  }
+}
+
 export async function getCleanersList() {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -123,7 +258,7 @@ export async function getCleanersList() {
     console.error("[getCleanersList]", error);
     return [];
   }
-  return data;
+  return data || [];
 }
 
 export async function getCleanerById(id: string) {
@@ -155,7 +290,6 @@ export async function assignCleanerToJobAction(input: {
 
     if (!adminUser) throw new Error("Unauthorized");
 
-    // Check if job record exists for this booking
     const { data: existingJob } = await supabase.from("jobs").select("id").eq("booking_id", input.booking_id).single();
 
     let jobId: string;
@@ -193,10 +327,8 @@ export async function assignCleanerToJobAction(input: {
       secureToken = newJob.secure_token;
     }
 
-    // Update booking status to cleaner_assigned
     await supabase.from("bookings").update({ status: "cleaner_assigned" }).eq("id", input.booking_id);
 
-    // Audit log
     await supabase.from("audit_logs").insert({
       actor_id: adminUser.id,
       actor_role: "admin",
@@ -221,25 +353,85 @@ export async function assignCleanerToJobAction(input: {
   }
 }
 
+export async function getCleanerAssignedJobs() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user: cleanerUser },
+  } = await supabase.auth.getUser();
+
+  if (!cleanerUser) return [];
+
+  const { data: jobs, error } = await supabase
+    .from("jobs")
+    .select(
+      "*, cleaner:cleaners(*, profile:profiles(*)), booking:bookings(*, customer:customers(*), address:customer_addresses(*))",
+    )
+    .eq("cleaner_id", cleanerUser.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[getCleanerAssignedJobs]", error);
+    return [];
+  }
+
+  return jobs || [];
+}
+
 export async function getJobsList(statusFilter?: string) {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+
+  // Fetch existing jobs first
+  const { data: existingJobs, error: jobsErr } = await supabase
     .from("jobs")
     .select(
       "*, cleaner:cleaners(*, profile:profiles(*)), booking:bookings(*, customer:customers(*), address:customer_addresses(*))",
     )
     .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("[getJobsList]", error);
-    return [];
+  if (jobsErr) {
+    console.error("[getJobsList]", jobsErr);
   }
-  return data;
+
+  const jobsList = existingJobs || [];
+  const assignedBookingIds = new Set(jobsList.map((j) => j.booking_id));
+
+  // Fetch bookings that are in accepted or paid status but don't have a jobs row yet
+  const { data: operationalBookings } = await supabase
+    .from("bookings")
+    .select("*, customer:customers(*), address:customer_addresses(*)")
+    .in("status", [
+      "quotation_accepted",
+      "cleaner_assigned",
+      "cleaner_accepted",
+      "in_progress",
+      "completed_pending_review",
+      "completed",
+      "paid",
+    ])
+    .order("created_at", { ascending: false });
+
+  const unassignedJobs = (operationalBookings || [])
+    .filter((b) => !assignedBookingIds.has(b.id))
+    .map((b) => ({
+      id: b.id, // Use booking id as temporary job reference
+      booking_id: b.id,
+      cleaner_id: null,
+      scheduled_date: b.preferred_date,
+      scheduled_time: b.arrival_window || "Morning",
+      secure_token: null,
+      created_at: b.created_at,
+      cleaner: null,
+      booking: b,
+    }));
+
+  return [...jobsList, ...unassignedJobs];
 }
 
 export async function getJobById(id: string) {
   const supabase = await createSupabaseServerClient();
-  const { data: job, error } = await supabase
+
+  // Try querying by job id
+  const { data: job } = await supabase
     .from("jobs")
     .select(
       "*, cleaner:cleaners(*, profile:profiles(*)), booking:bookings(*, customer:customers(*), address:customer_addresses(*), photos(*))",
@@ -247,11 +439,39 @@ export async function getJobById(id: string) {
     .eq("id", id)
     .single();
 
-  if (error) {
-    console.error("[getJobById]", error);
-    return null;
-  }
-  return job;
+  if (job) return job;
+
+  // Try querying by booking id
+  const { data: jobByBooking } = await supabase
+    .from("jobs")
+    .select(
+      "*, cleaner:cleaners(*, profile:profiles(*)), booking:bookings(*, customer:customers(*), address:customer_addresses(*), photos(*))",
+    )
+    .eq("booking_id", id)
+    .single();
+
+  if (jobByBooking) return jobByBooking;
+
+  // Otherwise check if booking exists and return pending wrapper
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("*, customer:customers(*), address:customer_addresses(*), photos(*)")
+    .eq("id", id)
+    .single();
+
+  if (!booking) return null;
+
+  return {
+    id: booking.id,
+    booking_id: booking.id,
+    cleaner_id: null,
+    scheduled_date: booking.preferred_date,
+    scheduled_time: booking.arrival_window || "Morning",
+    secure_token: null,
+    created_at: booking.created_at,
+    cleaner: null,
+    booking,
+  };
 }
 
 export async function getJobByToken(token: string) {
@@ -285,13 +505,22 @@ export async function updateCleanerJobStatusAction(input: {
 
     if (!cleanerUser) throw new Error("Unauthorized");
 
-    const { data: job } = await supabase
+    let { data: job } = await supabase
       .from("jobs")
       .select("id, booking_id, cleaner_id")
       .eq("id", input.job_id)
       .single();
 
-    if (!job) throw new Error("Job not found");
+    if (!job) {
+      const { data: jobByBooking } = await supabase
+        .from("jobs")
+        .select("id, booking_id, cleaner_id")
+        .eq("booking_id", input.job_id)
+        .single();
+      job = jobByBooking;
+    }
+
+    if (!job) throw new Error("Job record not found. Please assign cleaner first.");
 
     const now = new Date().toISOString();
 
@@ -358,6 +587,59 @@ export async function adminApproveJobCompletionAction(jobId: string, bookingId: 
   } catch (err: unknown) {
     console.error("[adminApproveJobCompletionAction]", err);
     const errorMessage = err instanceof Error ? err.message : "Failed to approve job completion";
+    return { success: false, error: errorMessage };
+  }
+}
+
+export async function uploadJobPhotoAction(formData: FormData) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    const jobId = formData.get("job_id") as string;
+    const bookingId = formData.get("booking_id") as string;
+    const category = (formData.get("category") as "before" | "after") || "before";
+    const file = formData.get("file") as File;
+
+    if (!file || !bookingId) throw new Error("File and booking ID are required");
+
+    const fileExt = file.name.split(".").pop() || "jpg";
+    const filePath = `${bookingId}/${category}_${Date.now()}.${fileExt}`;
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Upload to Supabase Storage bucket
+    const { error: storageErr } = await supabase.storage.from("job-photos").upload(filePath, buffer, {
+      contentType: file.type || "image/jpeg",
+      upsert: true,
+    });
+
+    if (storageErr) {
+      console.warn("[uploadJobPhotoAction storage warning]", storageErr.message);
+    }
+
+    const publicUrlData = supabase.storage.from("job-photos").getPublicUrl(filePath);
+    const photoUrl = publicUrlData.data.publicUrl;
+
+    // Insert into photos table
+    await supabase.from("photos").insert({
+      booking_id: bookingId,
+      uploaded_by: user.id,
+      category: category,
+      storage_path: photoUrl,
+    });
+
+    revalidatePath(`/cleaner/jobs/${jobId}`);
+    revalidatePath(`/dashboard/jobs/${jobId}`);
+
+    return { success: true, url: photoUrl };
+  } catch (err: unknown) {
+    console.error("[uploadJobPhotoAction]", err);
+    const errorMessage = err instanceof Error ? err.message : "Failed to upload photo";
     return { success: false, error: errorMessage };
   }
 }

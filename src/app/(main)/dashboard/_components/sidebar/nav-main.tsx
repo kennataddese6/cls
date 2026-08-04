@@ -107,20 +107,50 @@ export function NavMain({ items }: NavMainProps) {
         <SidebarGroupContent className="flex flex-col gap-2">
           <SidebarMenu>
             <SidebarMenuItem className="flex items-center gap-2">
-              <SidebarMenuButton
-                tooltip="Quick Create"
-                className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
-              >
-                <PlusCircleIcon />
-                <span>Quick Create</span>
-              </SidebarMenuButton>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton
+                    tooltip="Quick Create"
+                    className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground cursor-pointer"
+                  >
+                    <PlusCircleIcon />
+                    <span>Quick Create</span>
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="right" align="start" className="w-56">
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard/cleaners/new" className="flex items-center gap-2 cursor-pointer">
+                        <PlusCircleIcon className="size-4 text-primary" />
+                        <span>+ New Cleaner Account</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard/quotes/new" className="flex items-center gap-2 cursor-pointer">
+                        <PlusCircleIcon className="size-4 text-primary" />
+                        <span>+ Create Quotation</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/book" target="_blank" className="flex items-center gap-2 cursor-pointer">
+                        <PlusCircleIcon className="size-4 text-primary" />
+                        <span>+ Public Booking Form</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <Button
                 size="icon"
                 className="h-9 w-9 shrink-0 group-data-[collapsible=icon]:opacity-0"
                 variant="outline"
+                asChild
               >
-                <MailIcon />
-                <span className="sr-only">Inbox</span>
+                <Link href="/dashboard/enquiries">
+                  <MailIcon />
+                  <span className="sr-only">Inbox</span>
+                </Link>
               </Button>
             </SidebarMenuItem>
           </SidebarMenu>

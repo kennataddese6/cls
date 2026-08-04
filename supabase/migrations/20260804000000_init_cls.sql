@@ -480,21 +480,41 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
--- Profiles policies
-CREATE POLICY "profiles_read_all" ON profiles FOR SELECT USING (true);
-CREATE POLICY "profiles_own_update" ON profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "profiles_admin_all" ON profiles FOR ALL USING (public.is_admin());
+-- Cleaners policies
+CREATE POLICY "cleaners_admin_all" ON cleaners FOR ALL USING (public.is_admin());
+CREATE POLICY "cleaners_read_own" ON cleaners FOR SELECT USING (id = auth.uid());
 
--- Services: anyone can read active services
-CREATE POLICY "services_public_read" ON services FOR SELECT USING (is_active = true);
-CREATE POLICY "services_admin_all" ON services FOR ALL USING (public.is_admin());
+-- Customers policies (public booking wizard)
+CREATE POLICY "customers_admin_all" ON customers FOR ALL USING (public.is_admin());
+CREATE POLICY "customers_public_insert" ON customers FOR INSERT WITH CHECK (true);
+CREATE POLICY "customers_public_select" ON customers FOR SELECT USING (true);
+
+-- Customer Addresses policies (public booking wizard)
+CREATE POLICY "customer_addresses_admin_all" ON customer_addresses FOR ALL USING (public.is_admin());
+CREATE POLICY "customer_addresses_public_insert" ON customer_addresses FOR INSERT WITH CHECK (true);
+CREATE POLICY "customer_addresses_public_select" ON customer_addresses FOR SELECT USING (true);
 
 -- Bookings policies
 CREATE POLICY "bookings_admin_all" ON bookings FOR ALL USING (public.is_admin());
-CREATE POLICY "bookings_customer_read" ON bookings FOR SELECT USING (customer_id IN (SELECT id FROM customers WHERE profile_id = auth.uid()));
+CREATE POLICY "bookings_public_insert" ON bookings FOR INSERT WITH CHECK (true);
+CREATE POLICY "bookings_public_select" ON bookings FOR SELECT USING (true);
+
+-- Quotes & Items policies
+CREATE POLICY "quotes_admin_all" ON quotes FOR ALL USING (public.is_admin());
+CREATE POLICY "quotes_public_select" ON quotes FOR SELECT USING (true);
+CREATE POLICY "quotes_public_update" ON quotes FOR UPDATE USING (true);
+CREATE POLICY "quote_items_admin_all" ON quote_items FOR ALL USING (public.is_admin());
+CREATE POLICY "quote_items_public_select" ON quote_items FOR SELECT USING (true);
+
+-- Invoices & Payments policies
+CREATE POLICY "invoices_admin_all" ON invoices FOR ALL USING (public.is_admin());
+CREATE POLICY "invoices_public_select" ON invoices FOR SELECT USING (true);
+CREATE POLICY "invoices_public_insert" ON invoices FOR INSERT WITH CHECK (true);
+CREATE POLICY "payments_admin_all" ON payments FOR ALL USING (public.is_admin());
 
 -- Jobs policies
 CREATE POLICY "jobs_admin_all" ON jobs FOR ALL USING (public.is_admin());
+CREATE POLICY "jobs_public_select" ON jobs FOR SELECT USING (true);
 CREATE POLICY "jobs_cleaner_read" ON jobs FOR SELECT USING (cleaner_id = auth.uid());
 CREATE POLICY "jobs_cleaner_update" ON jobs FOR UPDATE USING (cleaner_id = auth.uid());
 
@@ -502,5 +522,6 @@ CREATE POLICY "jobs_cleaner_update" ON jobs FOR UPDATE USING (cleaner_id = auth.
 CREATE POLICY "photos_admin_all" ON photos FOR ALL USING (public.is_admin());
 CREATE POLICY "photos_cleaner_insert" ON photos FOR INSERT WITH CHECK (uploaded_by = auth.uid());
 
--- Audit logs policies
+-- Audit logs & Settings policies
 CREATE POLICY "audit_logs_admin_read" ON audit_logs FOR SELECT USING (public.is_admin());
+CREATE POLICY "settings_admin_all" ON settings FOR ALL USING (public.is_admin());

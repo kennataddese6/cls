@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { getJobById } from "@/server/job-actions";
 import { CleanerJobActions } from "../_components/cleaner-job-actions";
+import { PhotoUploadSection } from "../_components/photo-upload-section";
 
 export default async function CleanerJobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -54,6 +55,14 @@ export default async function CleanerJobDetailPage({ params }: { params: Promise
         return <Badge variant="outline">{status.replace("_", " ")}</Badge>;
     }
   };
+
+  const hasStarted = Boolean(
+    job.started_at ||
+      bookingStatus === "in_progress" ||
+      bookingStatus === "completed_pending_review" ||
+      bookingStatus === "completed" ||
+      bookingStatus === "paid",
+  );
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto">
@@ -151,9 +160,30 @@ export default async function CleanerJobDetailPage({ params }: { params: Promise
           <CardDescription>Accept, start, or submit completed work</CardDescription>
         </CardHeader>
         <CardContent>
-          <CleanerJobActions jobId={job.id} bookingStatus={bookingStatus} />
+          <CleanerJobActions
+            jobId={job.id}
+            bookingStatus={bookingStatus}
+            acceptedAt={job.accepted_at}
+            startedAt={job.started_at}
+            completedAt={job.completed_at}
+          />
         </CardContent>
       </Card>
+
+      {/* Photo Upload Section (Unlocked once job starts) */}
+      {hasStarted ? (
+        <Card className="border-border">
+          <CardContent className="pt-4">
+            <PhotoUploadSection jobId={job.id} bookingId={job.booking_id} existingPhotos={job.booking?.photos || []} />
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="p-4 rounded-xl bg-muted/40 border border-border text-center text-xs text-muted-foreground space-y-1">
+          <Camera className="size-5 text-muted-foreground mx-auto" />
+          <p className="font-semibold text-foreground">Before & After Photo Upload Locked</p>
+          <p>Accept the job and click &quot;Start Job Now&quot; to unlock photo evidence uploading.</p>
+        </div>
+      )}
     </div>
   );
 }

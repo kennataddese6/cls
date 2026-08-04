@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import Link from "next/link";
-
+import Image from "next/image";
 import { ArrowRight, Clock, Mail, Phone, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -15,10 +15,10 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
-              <Phone className="size-3.5" /> +44 (0) 20 7946 0912
+              <Phone className="size-3.5" /> +44 7442 052931 / 02035761607
             </span>
             <span className="hidden md:flex items-center gap-1.5">
-              <Mail className="size-3.5" /> hello@cleaningcompany.com
+              <Mail className="size-3.5" /> sam@samspotlesscleaning.com
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -32,9 +32,13 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
       {/* Main Header */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="size-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground transition-transform group-hover:scale-105">
-              <Sparkles className="size-5" />
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="h-10 flex items-center justify-center transition-transform group-hover:scale-105">
+              <img
+                src="/images/logo.png"
+                alt="Sam Spotless Cleaning Logo"
+                className="h-10 w-auto object-contain rounded-lg"
+              />
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-lg leading-none tracking-tight">{APP_CONFIG.name}</span>
@@ -86,10 +90,12 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 lg:gap-12">
             <div className="space-y-4 md:col-span-1">
-              <div className="flex items-center gap-2">
-                <div className="size-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
-                  <Sparkles className="size-4" />
-                </div>
+              <div className="flex items-center gap-3">
+                <img
+                  src="/images/logo.png"
+                  alt="Sam Spotless Cleaning Logo"
+                  className="h-8 w-auto object-contain rounded-lg"
+                />
                 <span className="font-bold text-base">{APP_CONFIG.name}</span>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -139,8 +145,8 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
               <h3 className="font-semibold text-sm mb-4">Get In Touch</h3>
               <ul className="space-y-2.5 text-sm text-muted-foreground">
                 <li>123 High Street, London, EC1A 1BB</li>
-                <li>+44 (0) 20 7946 0912</li>
-                <li>hello@cleaningcompany.com</li>
+                <li>+44 7442 052931 / 02035761607</li>
+                <li>sam@samspotlesscleaning.com</li>
               </ul>
             </div>
           </div>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { getInvoiceById } from "@/server/invoice-actions";
 import { RecordPaymentForm } from "../_components/record-payment-form";
+import { PrintInvoiceButton } from "@/components/invoice/print-invoice-button";
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -68,6 +69,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         </div>
 
         <div className="flex items-center gap-2">
+          <PrintInvoiceButton />
           <Button variant="outline" size="sm" asChild>
             <Link href={`/i/${invoice.token}`} target="_blank">
               <ExternalLink className="size-3.5 mr-1" /> Customer Link

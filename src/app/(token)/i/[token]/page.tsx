@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { APP_CONFIG } from "@/config/app-config";
 
 import { getInvoiceByToken } from "@/server/invoice-actions";
+import { PrintInvoiceButton } from "@/components/invoice/print-invoice-button";
 
 export default async function CustomerInvoicePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -32,12 +33,15 @@ export default async function CustomerInvoicePage({ params }: { params: Promise<
             </div>
           </div>
 
-          <Badge
-            variant={isPaid ? "default" : "outline"}
-            className={isPaid ? "bg-emerald-600 text-white" : "border-amber-500 text-amber-600 font-bold"}
-          >
-            {isPaid ? "PAID IN FULL" : "PAYMENT DUE"}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <PrintInvoiceButton />
+            <Badge
+              variant={isPaid ? "default" : "outline"}
+              className={isPaid ? "bg-emerald-600 text-white" : "border-amber-500 text-amber-600 font-bold"}
+            >
+              {isPaid ? "PAID IN FULL" : "PAYMENT DUE"}
+            </Badge>
+          </div>
         </div>
 
         {/* Invoice Card */}
@@ -142,7 +146,7 @@ export default async function CustomerInvoicePage({ params }: { params: Promise<
                   </div>
                   <div>
                     <span className="text-muted-foreground">Account Name:</span>
-                    <p className="font-semibold">Cleaning Management Co Ltd</p>
+                    <p className="font-semibold">Sam Spotless Cleaning Ltd</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Sort Code:</span>

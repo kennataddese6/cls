@@ -17,7 +17,7 @@ export default async function SecureJobEntryPage({ params }: { params: Promise<{
 
   // If cleaner not logged in, redirect to login page with return URL
   if (!user) {
-    redirect(`/auth/v2/login?next=/jobs/${token}`);
+    redirect(`/auth/v1/login?next=/jobs/${token}`);
   }
 
   // Redirect to cleaner job detail

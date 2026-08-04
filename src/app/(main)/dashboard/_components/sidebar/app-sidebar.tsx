@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-
-import { Command } from "lucide-react";
+import Image from "next/image";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -39,10 +38,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link prefetch={false} href="/dashboard/default">
-                <Command />
-                <span className="font-semibold text-base">{APP_CONFIG.name}</span>
+            <SidebarMenuButton asChild size="lg">
+              <Link prefetch={false} href="/dashboard/overview" className="flex items-center gap-3">
+                <img
+                  src="/images/logo.png"
+                  alt="Sam Spotless Cleaning Logo"
+                  className="h-8 w-auto object-contain shrink-0"
+                />
+                <div className="flex flex-col">
+                  <span className="font-bold text-sm leading-tight text-foreground">{APP_CONFIG.name}</span>
+                  <span className="text-[10px] text-muted-foreground font-medium">Admin Dashboard</span>
+                </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

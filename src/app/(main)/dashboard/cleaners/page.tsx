@@ -1,10 +1,13 @@
 import Link from "next/link";
-import { UserCheck, Plus, Eye, Phone, Mail, MapPin } from "lucide-react";
+import { UserCheck, Plus, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 import { getCleanersList } from "@/server/job-actions";
+import { EditCleanerDialog } from "./[id]/_components/edit-cleaner-dialog";
+import { DeleteCleanerButton } from "./[id]/_components/delete-cleaner-button";
+import { ResetPasswordDialog } from "./[id]/_components/reset-password-dialog";
 
 export default async function CleanersListPage() {
   const cleaners = await getCleanersList();
@@ -36,7 +39,7 @@ export default async function CleanersListPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Cleaners Directory</h1>
           <p className="text-sm text-muted-foreground">
-            Manage active cleaners, availability statuses, and service coverage areas.
+            Manage active cleaners, availability statuses, edit profiles, and service coverage areas.
           </p>
         </div>
 
@@ -87,17 +90,34 @@ export default async function CleanersListPage() {
                       </td>
                       <td className="px-4 py-3.5 capitalize text-xs">{c.cleaner_type}</td>
                       <td className="px-4 py-3.5 text-xs text-muted-foreground">
-                        <div>{c.profile?.email}</div>
-                        <div>{c.profile?.phone || "N/A"}</div>
+                        <div className="font-medium text-foreground">{c.profile?.email || "No email"}</div>
+                        <div>{c.profile?.phone || "No phone"}</div>
                       </td>
                       <td className="px-4 py-3.5 text-xs">{c.service_areas?.join(", ") || "General"}</td>
                       <td className="px-4 py-3.5">{getStatusBadge(c.status)}</td>
                       <td className="px-4 py-3.5 text-right">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/dashboard/cleaners/${c.id}`}>
-                            <Eye className="size-3.5 mr-1" /> View Profile
-                          </Link>
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/dashboard/cleaners/${c.id}`}>
+                              <Eye className="size-3.5 mr-1" /> View
+                            </Link>
+                          </Button>
+                          <ResetPasswordDialog cleanerId={c.id} cleanerName={c.profile?.full_name || "Cleaner"} />
+                          <EditCleanerDialog
+                            cleaner={{
+                              id: c.id,
+                              fullName: c.profile?.full_name || "",
+                              phone: c.profile?.phone || "",
+                              cleanerType: c.cleaner_type,
+                              companyName: c.company_name || "",
+                              address: c.address || "",
+                              serviceAreas: c.service_areas?.join(", ") || "",
+                              status: c.status,
+                              notes: c.notes || "",
+                            }}
+                          />
+                          <DeleteCleanerButton cleanerId={c.id} cleanerName={c.profile?.full_name || "Cleaner"} />
+                        </div>
                       </td>
                     </tr>
                   ))}

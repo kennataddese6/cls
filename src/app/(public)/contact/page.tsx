@@ -33,7 +33,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-sm">Phone</h4>
-                  <p className="text-sm text-muted-foreground">+44 (0) 20 7946 0912</p>
+                  <p className="text-sm text-muted-foreground">+44 7442 052931 / 02035761607</p>
                   <p className="text-xs text-muted-foreground">Mon - Sat: 8:00 AM - 7:00 PM</p>
                 </div>
               </div>
@@ -44,7 +44,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-sm">Email</h4>
-                  <p className="text-sm text-muted-foreground">hello@cleaningcompany.com</p>
+                  <p className="text-sm text-muted-foreground">sam@samspotlesscleaning.com</p>
                   <p className="text-xs text-muted-foreground">Support response within 4 hours</p>
                 </div>
               </div>

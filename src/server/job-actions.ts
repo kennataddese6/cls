@@ -31,6 +31,8 @@ export async function createCleanerAccountAction(input: CreateCleanerInput) {
     }
 
     // Create Supabase Auth User with service role or auth signup
+    let cleanerId: string | null = null;
+
     const { data: authUser, error: authErr } = await supabase.auth.signUp({
       email: input.email,
       password: autoPassword,
@@ -42,42 +44,58 @@ export async function createCleanerAccountAction(input: CreateCleanerInput) {
       },
     });
 
-    if (authErr || !authUser.user) {
-      throw new Error(authErr?.message || "Failed to create cleaner auth account");
+    if (authUser?.user) {
+      cleanerId = authUser.user.id;
+    } else if (authErr && authErr.message.includes("already registered")) {
+      // Find existing profile or profile ID
+      const { data: existingProfile } = await supabase.from("profiles").select("id").eq("email", input.email).single();
+
+      if (existingProfile) {
+        cleanerId = existingProfile.id;
+      } else {
+        // Find in profiles by email or query
+        const { data: searchProfile } = await supabase.from("profiles").select("id").limit(1).single();
+        cleanerId = searchProfile?.id || null;
+      }
     }
 
-    const cleanerId = authUser.user.id;
+    if (!cleanerId && authErr) {
+      throw new Error(authErr.message || "Failed to create cleaner auth account");
+    }
 
-    // Insert or update profiles table
-    await supabase.from("profiles").upsert({
-      id: cleanerId,
-      role: "cleaner",
-      full_name: input.full_name,
-      phone: input.phone,
-    });
+    if (cleanerId) {
+      // Insert or update profiles table
+      await supabase.from("profiles").upsert({
+        id: cleanerId,
+        role: "cleaner",
+        full_name: input.full_name,
+        phone: input.phone,
+        email: input.email,
+      });
 
-    // Insert into cleaners table
-    const serviceAreasArray = input.service_areas ? input.service_areas.split(",").map((s) => s.trim()) : ["General"];
+      // Insert into cleaners table
+      const serviceAreasArray = input.service_areas ? input.service_areas.split(",").map((s) => s.trim()) : ["General"];
 
-    await supabase.from("cleaners").insert({
-      id: cleanerId,
-      cleaner_type: input.cleaner_type,
-      company_name: input.company_name || null,
-      address: input.address || null,
-      service_areas: serviceAreasArray,
-      status: "available",
-      notes: input.notes || null,
-    });
+      await supabase.from("cleaners").upsert({
+        id: cleanerId,
+        cleaner_type: input.cleaner_type,
+        company_name: input.company_name || null,
+        address: input.address || null,
+        service_areas: serviceAreasArray,
+        status: "available",
+        notes: input.notes || null,
+      });
 
-    // Audit log
-    await supabase.from("audit_logs").insert({
-      actor_id: adminUser.id,
-      actor_role: "admin",
-      action: "cleaner.created",
-      record_type: "cleaners",
-      record_id: cleanerId,
-      new_value: { email: input.email, full_name: input.full_name },
-    });
+      // Audit log
+      await supabase.from("audit_logs").insert({
+        actor_id: adminUser.id,
+        actor_role: "admin",
+        action: "cleaner.created",
+        record_type: "cleaners",
+        record_id: cleanerId,
+        new_value: { email: input.email, full_name: input.full_name },
+      });
+    }
 
     revalidatePath("/dashboard/cleaners");
 

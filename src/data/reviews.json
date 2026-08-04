@@ -1,0 +1,29 @@
+[
+  {
+    "id": "rev-1",
+    "customer_name": "Eleanor Vance",
+    "rating": 5,
+    "title": "Exceptional Spring Clean!",
+    "comment": "The team arrived right on time and transformed our 4-bedroom house. The oven and kitchen look brand new!",
+    "status": "approved",
+    "created_at": "2026-08-01T12:00:00.000Z"
+  },
+  {
+    "id": "rev-2",
+    "customer_name": "Marcus Sterling",
+    "rating": 5,
+    "title": "100% Deposit Returned",
+    "comment": "Used Sam Spotless for our end of tenancy clean. Landlord approved without any deductions. Highly recommended!",
+    "status": "approved",
+    "created_at": "2026-07-28T14:30:00.000Z"
+  },
+  {
+    "id": "rev-3",
+    "customer_name": "Sarah Jenkins",
+    "rating": 5,
+    "title": "Punctual & Thorough Commercial Service",
+    "comment": "They clean our clinic offices weekly. Extremely trustworthy, polite, and detail-oriented staff.",
+    "status": "approved",
+    "created_at": "2026-07-20T09:15:00.000Z"
+  }
+]

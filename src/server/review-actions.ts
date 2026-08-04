@@ -1,5 +1,7 @@
 "use server";
 
+import fs from "node:fs";
+import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -14,36 +16,31 @@ export interface ReviewItem {
   created_at: string;
 }
 
-let MEMORY_REVIEWS: ReviewItem[] = [
-  {
-    id: "rev-1",
-    customer_name: "Eleanor Vance",
-    rating: 5,
-    title: "Exceptional Spring Clean!",
-    comment: "The team arrived right on time and transformed our 4-bedroom house. The oven and kitchen look brand new!",
-    status: "approved",
-    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-  },
-  {
-    id: "rev-2",
-    customer_name: "Marcus Sterling",
-    rating: 5,
-    title: "100% Deposit Returned",
-    comment:
-      "Used Sam Spotless for our end of tenancy clean. Landlord approved without any deductions. Highly recommended!",
-    status: "approved",
-    created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
-  },
-  {
-    id: "rev-3",
-    customer_name: "Sarah Jenkins",
-    rating: 5,
-    title: "Punctual & Thorough Commercial Service",
-    comment: "They clean our clinic offices weekly. Extremely trustworthy, polite, and detail-oriented staff.",
-    status: "approved",
-    created_at: new Date(Date.now() - 86400000 * 12).toISOString(),
-  },
-];
+const DATA_FILE_PATH = path.join(process.cwd(), "src/data/reviews.json");
+
+function readReviewsFromFile(): ReviewItem[] {
+  try {
+    if (fs.existsSync(DATA_FILE_PATH)) {
+      const content = fs.readFileSync(DATA_FILE_PATH, "utf-8");
+      return JSON.parse(content);
+    }
+  } catch (e) {
+    console.error("[readReviewsFromFile]", e);
+  }
+  return [];
+}
+
+function writeReviewsToFile(reviews: ReviewItem[]): void {
+  try {
+    const dir = path.dirname(DATA_FILE_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(reviews, null, 2), "utf-8");
+  } catch (e) {
+    console.error("[writeReviewsToFile]", e);
+  }
+}
 
 export async function submitCustomerReviewAction(data: {
   booking_id?: string;
@@ -53,6 +50,8 @@ export async function submitCustomerReviewAction(data: {
   comment: string;
 }) {
   try {
+    const reviews = readReviewsFromFile();
+
     const newReview: ReviewItem = {
       id: `rev-${Date.now()}`,
       booking_id: data.booking_id,
@@ -64,24 +63,23 @@ export async function submitCustomerReviewAction(data: {
       created_at: new Date().toISOString(),
     };
 
-    MEMORY_REVIEWS.unshift(newReview);
+    reviews.unshift(newReview);
+    writeReviewsToFile(reviews);
 
+    // Also log to Supabase Cloud audit_logs
     try {
       const adminSupabase = createSupabaseAdminClient();
-      await adminSupabase.from("reviews").insert({
-        booking_id: data.booking_id || null,
-        customer_name: data.customer_name,
-        rating: data.rating,
-        title: data.title || "Customer Review",
-        comment: data.comment,
-        status: "pending",
+      await adminSupabase.from("audit_logs").insert({
+        action: "review.submitted",
+        record_type: "reviews",
+        record_id: newReview.id,
+        new_value: newReview as any,
       });
-    } catch {
-      // Table fallback handled gracefully
-    }
+    } catch {}
 
     revalidatePath("/testimonials");
     revalidatePath("/dashboard/reviews");
+    revalidatePath("/track");
     return { success: true, message: "Thank you! Your review has been submitted for admin approval." };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to submit review" };
@@ -90,39 +88,31 @@ export async function submitCustomerReviewAction(data: {
 
 export async function getReviewsListAdminAction(): Promise<ReviewItem[]> {
   try {
-    const adminSupabase = createSupabaseAdminClient();
-    const { data, error } = await adminSupabase.from("reviews").select("*").order("created_at", { ascending: false });
-
-    if (error || !data || data.length === 0) {
-      return MEMORY_REVIEWS;
-    }
-
-    return data.map((r) => ({
-      id: r.id,
-      booking_id: r.booking_id,
-      customer_name: r.customer_name || "Customer",
-      rating: r.rating || 5,
-      title: r.title || "Review",
-      comment: r.comment || r.text || "",
-      status: r.status || "pending",
-      created_at: r.created_at || new Date().toISOString(),
-    }));
+    return readReviewsFromFile();
   } catch {
-    return MEMORY_REVIEWS;
+    return [];
   }
 }
 
 export async function approveReviewAction(reviewId: string) {
   try {
-    MEMORY_REVIEWS = MEMORY_REVIEWS.map((r) => (r.id === reviewId ? { ...r, status: "approved" } : r));
+    const reviews = readReviewsFromFile();
+    const updated = reviews.map((r) => (r.id === reviewId ? { ...r, status: "approved" as const } : r));
+
+    writeReviewsToFile(updated);
 
     try {
       const adminSupabase = createSupabaseAdminClient();
-      await adminSupabase.from("reviews").update({ status: "approved" }).eq("id", reviewId);
+      await adminSupabase.from("audit_logs").insert({
+        action: "review.approved",
+        record_type: "reviews",
+        record_id: reviewId,
+      });
     } catch {}
 
     revalidatePath("/testimonials");
     revalidatePath("/dashboard/reviews");
+    revalidatePath("/");
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to approve review" };
@@ -131,15 +121,14 @@ export async function approveReviewAction(reviewId: string) {
 
 export async function deleteReviewAction(reviewId: string) {
   try {
-    MEMORY_REVIEWS = MEMORY_REVIEWS.filter((r) => r.id !== reviewId);
+    const reviews = readReviewsFromFile();
+    const updated = reviews.filter((r) => r.id !== reviewId);
 
-    try {
-      const adminSupabase = createSupabaseAdminClient();
-      await adminSupabase.from("reviews").delete().eq("id", reviewId);
-    } catch {}
+    writeReviewsToFile(updated);
 
     revalidatePath("/testimonials");
     revalidatePath("/dashboard/reviews");
+    revalidatePath("/");
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to delete review" };
@@ -148,28 +137,9 @@ export async function deleteReviewAction(reviewId: string) {
 
 export async function getPublicApprovedReviewsAction(): Promise<ReviewItem[]> {
   try {
-    const adminSupabase = createSupabaseAdminClient();
-    const { data, error } = await adminSupabase
-      .from("reviews")
-      .select("*")
-      .eq("status", "approved")
-      .order("created_at", { ascending: false });
-
-    if (error || !data || data.length === 0) {
-      return MEMORY_REVIEWS.filter((r) => r.status === "approved");
-    }
-
-    return data.map((r) => ({
-      id: r.id,
-      booking_id: r.booking_id,
-      customer_name: r.customer_name || "Customer",
-      rating: r.rating || 5,
-      title: r.title || "Review",
-      comment: r.comment || r.text || "",
-      status: "approved",
-      created_at: r.created_at || new Date().toISOString(),
-    }));
+    const reviews = readReviewsFromFile();
+    return reviews.filter((r) => r.status === "approved");
   } catch {
-    return MEMORY_REVIEWS.filter((r) => r.status === "approved");
+    return [];
   }
 }

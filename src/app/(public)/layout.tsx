@@ -65,18 +65,12 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
             <Link href="/testimonials" className="transition-colors hover:text-primary">
               Reviews
             </Link>
-            <Link href="/track" className="transition-colors hover:text-primary">
-              Track Booking
-            </Link>
             <Link href="/contact" className="transition-colors hover:text-primary">
               Contact
             </Link>
           </nav>
 
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
-              <Link href="/track">Track Booking</Link>
-            </Button>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/auth/v2/login">Sign In</Link>
             </Button>

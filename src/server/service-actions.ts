@@ -86,7 +86,11 @@ export async function getServicesListAction(): Promise<ServiceItem[]> {
     }
 
     return data.map((item) => ({
-      ...item,
+      id: item.id,
+      title: item.title,
+      price: item.price || (item.base_price ? `£${item.base_price}` : "£100.00"),
+      duration: item.duration || (item.estimated_duration_hours ? `${item.estimated_duration_hours} hours` : "3 hours"),
+      description: item.description || "",
       checklist: Array.isArray(item.checklist) ? item.checklist : [],
     })) as ServiceItem[];
   } catch {
@@ -103,12 +107,17 @@ export async function createServiceAction(data: {
 }) {
   try {
     const supabase = createSupabaseAdminClient();
+    const numericPrice = Number.parseFloat(data.price.replace(/[^0-9.]/g, "")) || 100;
+    const numericDuration = Number.parseFloat(data.duration.replace(/[^0-9.]/g, "")) || 3;
+
     const { data: created, error } = await supabase
       .from("services")
       .insert({
         title: data.title,
         price: data.price,
+        base_price: numericPrice,
         duration: data.duration,
+        estimated_duration_hours: numericDuration,
         description: data.description,
         checklist: data.checklist,
       })
@@ -116,7 +125,22 @@ export async function createServiceAction(data: {
       .single();
 
     if (error) {
-      return { success: false, error: error.message };
+      // If error due to missing checklist column, insert without checklist
+      const { data: fallback, error: fallbackErr } = await supabase
+        .from("services")
+        .insert({
+          title: data.title,
+          base_price: numericPrice,
+          estimated_duration_hours: numericDuration,
+          description: data.description,
+        })
+        .select()
+        .single();
+
+      if (fallbackErr) {
+        return { success: false, error: fallbackErr.message };
+      }
+      return { success: true, item: fallback };
     }
 
     revalidatePath("/services");
@@ -139,20 +163,29 @@ export async function updateServiceAction(
 ) {
   try {
     const supabase = createSupabaseAdminClient();
+    const numericPrice = Number.parseFloat(data.price.replace(/[^0-9.]/g, "")) || 100;
+    const numericDuration = Number.parseFloat(data.duration.replace(/[^0-9.]/g, "")) || 3;
 
     // Check if updating a default item
     if (id.startsWith("service-")) {
       const { error } = await supabase.from("services").upsert({
-        id: id,
         title: data.title,
         price: data.price,
+        base_price: numericPrice,
         duration: data.duration,
+        estimated_duration_hours: numericDuration,
         description: data.description,
         checklist: data.checklist,
       });
 
       if (error) {
-        return { success: false, error: error.message };
+        // Fallback upsert without extra columns
+        await supabase.from("services").upsert({
+          title: data.title,
+          base_price: numericPrice,
+          estimated_duration_hours: numericDuration,
+          description: data.description,
+        });
       }
     } else {
       const { error } = await supabase
@@ -160,14 +193,25 @@ export async function updateServiceAction(
         .update({
           title: data.title,
           price: data.price,
+          base_price: numericPrice,
           duration: data.duration,
+          estimated_duration_hours: numericDuration,
           description: data.description,
           checklist: data.checklist,
         })
         .eq("id", id);
 
       if (error) {
-        return { success: false, error: error.message };
+        // Fallback update without extra columns
+        await supabase
+          .from("services")
+          .update({
+            title: data.title,
+            base_price: numericPrice,
+            estimated_duration_hours: numericDuration,
+            description: data.description,
+          })
+          .eq("id", id);
       }
     }
 

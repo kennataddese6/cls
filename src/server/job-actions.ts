@@ -71,7 +71,6 @@ export async function createCleanerAccountAction(input: CreateCleanerInput) {
       id: cleanerId,
       role: "cleaner",
       full_name: input.full_name,
-      email: input.email,
       phone: input.phone,
     });
 
@@ -284,7 +283,6 @@ export async function getCleanersList() {
           id: u.id,
           role: "cleaner",
           full_name: u.user_metadata?.full_name || u.email?.split("@")[0] || "Cleaner",
-          email: u.email,
         });
 
         await adminSupabase.from("cleaners").upsert({
@@ -342,7 +340,6 @@ export async function getCleanerById(id: string) {
           id: authUser.id,
           role: "cleaner",
           full_name: authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Cleaner",
-          email: authUser.email,
         });
 
         await adminSupabase.from("cleaners").upsert({

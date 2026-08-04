@@ -35,12 +35,11 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
     let createdBy: string | null = user?.id || null;
 
     if (createdBy) {
-      // Ensure profile row exists for this user ID
+      // Ensure profile row exists for this user ID (only insert valid profiles columns)
       await adminSupabase.from("profiles").upsert({
         id: createdBy,
         role: "admin",
         full_name: user?.user_metadata?.full_name || "Company Admin",
-        email: user?.email || "admin@cleaningcompany.com",
       });
     } else {
       // Find any existing admin profile or auth user
@@ -66,7 +65,6 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
             id: adminUser.id,
             role: "admin",
             full_name: "Company Admin",
-            email: adminUser.email,
           });
         }
       }

@@ -255,8 +255,10 @@ export async function getCleanersList() {
       .select("*, profile:profiles(*)")
       .order("created_at", { ascending: false });
 
-    // Also check auth users to sync any cleaners created via auth
+    // Fetch auth users to merge email and sync missing cleaner records
     const { data: userList } = await adminSupabase.auth.admin.listUsers();
+    const authUsersMap = new Map((userList?.users || []).map((u) => [u.id, u]));
+
     const cleanerAuthUsers =
       userList?.users?.filter(
         (u) =>
@@ -289,7 +291,20 @@ export async function getCleanersList() {
       .select("*, profile:profiles(*)")
       .order("created_at", { ascending: false });
 
-    return updatedCleaners || cleaners || [];
+    const finalCleaners = updatedCleaners || cleaners || [];
+
+    // Ensure email is populated from auth if missing in profile
+    return finalCleaners.map((c) => {
+      const authUser = authUsersMap.get(c.id);
+      return {
+        ...c,
+        profile: {
+          ...c.profile,
+          email: c.profile?.email || authUser?.email || "cleaner@samspotless.com",
+          full_name: c.profile?.full_name || authUser?.user_metadata?.full_name || "Cleaner",
+        },
+      };
+    });
   } catch (err) {
     console.error("[getCleanersList]", err);
     return [];
@@ -297,18 +312,66 @@ export async function getCleanersList() {
 }
 
 export async function getCleanerById(id: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: cleaner, error } = await supabase
-    .from("cleaners")
-    .select("*, profile:profiles(*), jobs(*, booking:bookings(*))")
-    .eq("id", id)
-    .single();
+  try {
+    const adminSupabase = createSupabaseAdminClient();
 
-  if (error) {
-    console.error("[getCleanerById]", error);
+    let { data: cleaner } = await adminSupabase
+      .from("cleaners")
+      .select("*, profile:profiles(*), jobs(*, booking:bookings(*))")
+      .eq("id", id)
+      .maybeSingle();
+
+    // If not found in cleaners table, check auth.users and auto-sync
+    if (!cleaner) {
+      const { data: authUserRes } = await adminSupabase.auth.admin.getUserById(id);
+      const authUser = authUserRes?.user;
+
+      if (authUser) {
+        await adminSupabase.from("profiles").upsert({
+          id: authUser.id,
+          role: "cleaner",
+          full_name: authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Cleaner",
+          email: authUser.email,
+        });
+
+        await adminSupabase.from("cleaners").upsert({
+          id: authUser.id,
+          cleaner_type: "individual",
+          service_areas: ["North London", "Central London"],
+          status: "available",
+        });
+
+        const { data: synced } = await adminSupabase
+          .from("cleaners")
+          .select("*, profile:profiles(*), jobs(*, booking:bookings(*))")
+          .eq("id", id)
+          .maybeSingle();
+
+        cleaner = synced;
+      }
+    }
+
+    if (!cleaner) return null;
+
+    // Attach email from auth if missing
+    if (!cleaner.profile?.email) {
+      const { data: authUserRes } = await adminSupabase.auth.admin.getUserById(id);
+      if (authUserRes?.user?.email) {
+        cleaner = {
+          ...cleaner,
+          profile: {
+            ...cleaner.profile,
+            email: authUserRes.user.email,
+          },
+        };
+      }
+    }
+
+    return cleaner;
+  } catch (err) {
+    console.error("[getCleanerById]", err);
     return null;
   }
-  return cleaner;
 }
 
 export async function assignCleanerToJobAction(input: {

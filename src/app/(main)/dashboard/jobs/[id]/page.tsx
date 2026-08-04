@@ -71,8 +71,13 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
     return <Badge variant="outline">{status.replace("_", " ")}</Badge>;
   };
 
-  const beforePhotos = (job.booking?.photos || []).filter((p: { category: string }) => p.category === "before");
-  const afterPhotos = (job.booking?.photos || []).filter((p: { category: string }) => p.category === "after");
+  const allPhotos = job.booking?.photos || [];
+  const beforePhotos = allPhotos.filter(
+    (p: { category?: string; photo_type?: string }) => p.category === "before" || p.photo_type === "before",
+  );
+  const afterPhotos = allPhotos.filter(
+    (p: { category?: string; photo_type?: string }) => p.category === "after" || p.photo_type === "after",
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -184,14 +189,21 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
                     <p className="text-xs text-muted-foreground italic py-6 text-center">No BEFORE photos uploaded.</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
-                      {beforePhotos.map((p: { id: string; storage_path: string }) => (
-                        <div
-                          key={p.id}
-                          className="relative h-32 rounded-lg overflow-hidden border border-border bg-card"
-                        >
-                          <Image src={p.storage_path} alt="Before photo" fill className="object-cover" />
-                        </div>
-                      ))}
+                      {beforePhotos.map((p: { id: string; storage_path?: string; url?: string }, idx: number) => {
+                        const src = p.storage_path || p.url || "";
+                        return (
+                          <a
+                            key={p.id || idx}
+                            href={src}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="relative h-32 rounded-lg overflow-hidden border border-border bg-black/5 hover:opacity-90 transition-opacity block"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={src} alt="Before clean photo" className="w-full h-full object-cover" />
+                          </a>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -206,14 +218,21 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
                     <p className="text-xs text-muted-foreground italic py-6 text-center">No AFTER photos uploaded.</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
-                      {afterPhotos.map((p: { id: string; storage_path: string }) => (
-                        <div
-                          key={p.id}
-                          className="relative h-32 rounded-lg overflow-hidden border border-border bg-card"
-                        >
-                          <Image src={p.storage_path} alt="After photo" fill className="object-cover" />
-                        </div>
-                      ))}
+                      {afterPhotos.map((p: { id: string; storage_path?: string; url?: string }, idx: number) => {
+                        const src = p.storage_path || p.url || "";
+                        return (
+                          <a
+                            key={p.id || idx}
+                            href={src}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="relative h-32 rounded-lg overflow-hidden border border-border bg-black/5 hover:opacity-90 transition-opacity block"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={src} alt="After clean photo" className="w-full h-full object-cover" />
+                          </a>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

@@ -1,7 +1,6 @@
 "use server";
 
 import { redirect } from "next/navigation";
-
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type AuthActionResult =
@@ -32,18 +31,12 @@ export async function signInAction(formData: { email: string; password: string }
       redirectUrl = "/";
     }
 
-    redirect(redirectUrl);
+    return {
+      success: true,
+      role,
+      redirectUrl,
+    };
   } catch (err: unknown) {
-    // If it's a Next.js redirect exception, re-throw it so Next.js can perform the redirect
-    if (
-      err &&
-      typeof err === "object" &&
-      "digest" in err &&
-      typeof (err as { digest?: string }).digest === "string" &&
-      (err as { digest: string }).digest.startsWith("NEXT_REDIRECT")
-    ) {
-      throw err;
-    }
     console.error("[signInAction]", err);
     return { success: false, error: "An unexpected authentication error occurred" };
   }

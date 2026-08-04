@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
 import { useRouter } from "next/navigation";
-
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -16,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { signInAction } from "@/server/auth-actions";
 
 const formSchema = z.object({
-  email: z.email({ message: "Please enter a valid email address." }),
+  email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   remember: z.boolean().optional(),
 });
@@ -38,10 +36,15 @@ export function LoginForm() {
     setLoading(true);
     try {
       const res = await signInAction({ email: data.email, password: data.password });
-      if (res && !res.success) {
-        toast.error(res.error);
+
+      if (!res.success) {
+        toast.error(res.error || "Invalid email or password");
         setLoading(false);
+        return;
       }
+
+      toast.success("Login successful! Redirecting...");
+      window.location.href = res.redirectUrl;
     } catch {
       toast.error("Failed to sign in. Please check your credentials.");
       setLoading(false);

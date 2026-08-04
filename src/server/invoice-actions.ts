@@ -1,59 +1,75 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function getInvoicesList(statusFilter?: string) {
-  const supabase = await createSupabaseServerClient();
-  let query = supabase
-    .from("invoices")
-    .select("*, customer:customers(*), booking:bookings(*)")
-    .order("created_at", { ascending: false });
+  try {
+    const adminSupabase = createSupabaseAdminClient();
+    let query = adminSupabase
+      .from("invoices")
+      .select("*, customer:customers(*), booking:bookings(*)")
+      .order("created_at", { ascending: false });
 
-  if (statusFilter && statusFilter !== "all") {
-    query = query.eq("status", statusFilter);
-  }
+    if (statusFilter && statusFilter !== "all") {
+      query = query.eq("status", statusFilter);
+    }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error("[getInvoicesList]", error);
+    const { data, error } = await query;
+    if (error) {
+      console.error("[getInvoicesList]", error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error("[getInvoicesList]", err);
     return [];
   }
-  return data;
 }
 
 export async function getInvoiceById(id: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: invoice, error } = await supabase
-    .from("invoices")
-    .select(
-      "*, customer:customers(*), booking:bookings(*, address:customer_addresses(*)), quote:quotes(*, items:quote_items(*)), payments(*)",
-    )
-    .eq("id", id)
-    .single();
+  try {
+    const adminSupabase = createSupabaseAdminClient();
+    const { data: invoice, error } = await adminSupabase
+      .from("invoices")
+      .select(
+        "*, customer:customers(*), booking:bookings(*, address:customer_addresses(*)), quote:quotes(*, items:quote_items(*)), payments(*)",
+      )
+      .eq("id", id)
+      .single();
 
-  if (error) {
-    console.error("[getInvoiceById]", error);
+    if (error) {
+      console.error("[getInvoiceById]", error);
+      return null;
+    }
+    return invoice;
+  } catch (err) {
+    console.error("[getInvoiceById]", err);
     return null;
   }
-  return invoice;
 }
 
 export async function getInvoiceByToken(token: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: invoice, error } = await supabase
-    .from("invoices")
-    .select(
-      "*, customer:customers(*), booking:bookings(*, address:customer_addresses(*)), quote:quotes(*, items:quote_items(*)), payments(*)",
-    )
-    .eq("token", token)
-    .single();
+  try {
+    const adminSupabase = createSupabaseAdminClient();
+    const { data: invoice, error } = await adminSupabase
+      .from("invoices")
+      .select(
+        "*, customer:customers(*), booking:bookings(*, address:customer_addresses(*)), quote:quotes(*, items:quote_items(*)), payments(*)",
+      )
+      .eq("token", token)
+      .single();
 
-  if (error) {
-    console.error("[getInvoiceByToken]", error);
+    if (error) {
+      console.error("[getInvoiceByToken]", error);
+      return null;
+    }
+    return invoice;
+  } catch (err) {
+    console.error("[getInvoiceByToken]", err);
     return null;
   }
-  return invoice;
 }
 
 export async function recordPaymentAction(input: {
@@ -69,9 +85,9 @@ export async function recordPaymentAction(input: {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) throw new Error("Unauthorized: Admin login required");
+    const adminSupabase = createSupabaseAdminClient();
 
-    const { data: invoice } = await supabase
+    const { data: invoice } = await adminSupabase
       .from("invoices")
       .select("id, booking_id, total, amount_paid")
       .eq("id", input.invoice_id)
@@ -80,13 +96,13 @@ export async function recordPaymentAction(input: {
     if (!invoice) throw new Error("Invoice not found");
 
     // 1. Insert Payment Record
-    await supabase.from("payments").insert({
+    await adminSupabase.from("payments").insert({
       invoice_id: input.invoice_id,
       amount: input.amount,
       method: input.method,
       reference: input.reference || null,
       notes: input.notes || null,
-      recorded_by: user.id,
+      recorded_by: user?.id || null,
       payment_date: new Date().toISOString().split("T")[0],
     });
 
@@ -96,7 +112,7 @@ export async function recordPaymentAction(input: {
     const newStatus = isFullyPaid ? "paid" : "part_paid";
 
     // 3. Update Invoice
-    await supabase
+    await adminSupabase
       .from("invoices")
       .update({
         amount_paid: newAmountPaid,
@@ -107,12 +123,12 @@ export async function recordPaymentAction(input: {
 
     // 4. Update Booking status to paid if fully paid
     if (isFullyPaid) {
-      await supabase.from("bookings").update({ status: "paid" }).eq("id", invoice.booking_id);
+      await adminSupabase.from("bookings").update({ status: "paid" }).eq("id", invoice.booking_id);
     }
 
     // 5. Audit Log
-    await supabase.from("audit_logs").insert({
-      actor_id: user.id,
+    await adminSupabase.from("audit_logs").insert({
+      actor_id: user?.id || null,
       actor_role: "admin",
       action: "payment.recorded",
       record_type: "invoices",

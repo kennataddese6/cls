@@ -243,7 +243,7 @@ export async function acceptQuoteCustomerAction(input: string | { token: string;
 
     const { data: quote, error: findErr } = await adminSupabase
       .from("quotes")
-      .select("id, booking_id, total, status")
+      .select("id, booking_id, total, status, booking:bookings(customer_id)")
       .eq("token", token)
       .single();
 
@@ -257,28 +257,31 @@ export async function acceptQuoteCustomerAction(input: string | { token: string;
     // 2. Update booking status
     await adminSupabase.from("bookings").update({ status: "quotation_accepted" }).eq("id", quote.booking_id);
 
-    // 3. Generate invoice automatically
-    const invRef = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 7);
+    // 3. Generate invoice automatically matching exact database schema
+    const { count } = await adminSupabase.from("invoices").select("id", { count: "exact", head: true });
+    const invRef = `INV-2026-${String((count || 0) + 1).padStart(4, "0")}`;
 
-    const { data: invoice } = await adminSupabase
+    const customerId = (quote as any).booking?.customer_id || null;
+
+    const { data: invoice, error: invErr } = await adminSupabase
       .from("invoices")
       .insert({
         invoice_number: invRef,
         booking_id: quote.booking_id,
         quote_id: quote.id,
+        customer_id: customerId,
         status: "unpaid",
-        issue_date: new Date().toISOString().split("T")[0],
-        due_date: dueDate.toISOString().split("T")[0],
         subtotal: quote.total,
-        tax_amount: 0,
-        total_amount: quote.total,
+        vat_amount: 0,
+        total: quote.total,
         amount_paid: 0,
-        balance_due: quote.total,
       })
       .select("token")
       .single();
+
+    if (invErr) {
+      console.error("[acceptQuoteCustomerAction] Invoice insert error:", invErr);
+    }
 
     // Update booking status to invoice_generated
     await adminSupabase.from("bookings").update({ status: "invoice_generated" }).eq("id", quote.booking_id);

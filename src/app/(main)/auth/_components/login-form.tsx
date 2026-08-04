@@ -1,5 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
+import { useRouter } from "next/navigation";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -9,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { signInAction } from "@/server/auth-actions";
 
 const formSchema = z.object({
   email: z.email({ message: "Please enter a valid email address." }),
@@ -16,17 +21,10 @@ const formSchema = z.object({
   remember: z.boolean().optional(),
 });
 
-function onSubmit(data: z.infer<typeof formSchema>) {
-  toast("You submitted the following values", {
-    description: (
-      <pre className="mt-2 w-[320px] rounded-md bg-neutral-950 p-4">
-        <code className="text-white">{JSON.stringify(data, null, 2)}</code>
-      </pre>
-    ),
-  });
-}
-
 export function LoginForm() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -35,6 +33,23 @@ export function LoginForm() {
       remember: false,
     },
   });
+
+  async function onSubmit(data: z.infer<typeof formSchema>) {
+    setLoading(true);
+    try {
+      const res = await signInAction({ email: data.email, password: data.password });
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Login successful!");
+      router.push(res.redirectUrl);
+    } catch {
+      toast.error("Failed to sign in");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -97,8 +112,8 @@ export function LoginForm() {
           )}
         />
       </FieldGroup>
-      <Button className="w-full" type="submit">
-        Login
+      <Button className="w-full" type="submit" disabled={loading}>
+        {loading ? "Signing in..." : "Login"}
       </Button>
     </form>
   );

@@ -163,16 +163,16 @@
 
 ## Status
 
-- [ ] Adapt login page for Supabase auth
-- [ ] Create `signIn` / `signOut` server actions
-- [ ] Middleware route guards (admin, cleaner, customer)
-- [ ] `profiles` table + trigger for role assignment
-- [ ] `useCurrentUser` hook
-- [ ] Role-based layout/route rendering
-- [ ] Password reset page
-- [ ] Test: admin login → admin dashboard
-- [ ] Test: cleaner login → cleaner portal
-- [ ] Test: unauthenticated → redirect to login
+- [x] Adapt login page for Supabase auth
+- [x] Create `signIn` / `signOut` server actions (`src/server/auth-actions.ts`)
+- [x] Middleware route guards (admin, cleaner, customer)
+- [x] `profiles` table + trigger for role assignment
+- [x] `getCurrentUserProfile` server action
+- [x] Role-based layout/route rendering
+- [x] Password reset page
+- [x] Test: admin login → admin dashboard (`admin@cleaningcompany.com`)
+- [x] Test: cleaner login → cleaner portal
+- [x] Test: unauthenticated → redirect to login
 
 ---
 

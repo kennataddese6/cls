@@ -238,47 +238,42 @@ html {
   transition: none !important;
 }
 
-[data-print-root] {
-  display: none;
-}
-
 @media print {
   @page {
-    size: Letter;
-    margin: 0;
+    size: auto;
+    margin: 12mm;
   }
 
-  html,
   body {
-    width: 8.5in !important;
-    height: 11in !important;
+    background: white !important;
+    color: black !important;
     margin: 0 !important;
-    overflow: hidden !important;
+    padding: 0 !important;
   }
 
-  body > *:not([data-print-root]) {
+  /* Hide interactive controls and sidebar elements when printing */
+  .no-print,
+  button,
+  header,
+  nav,
+  aside,
+  [data-sidebar="sidebar"] {
     display: none !important;
   }
 
+  /* Print paper container */
+  [data-print-paper],
+  .card,
   [data-print-root] {
     display: block !important;
-    width: 8.5in !important;
-    height: 11in !important;
-    margin: 0 !important;
-    overflow: hidden !important;
-    background: white !important;
-  }
-
-  [data-print-root] [data-print-paper] {
-    width: 8.5in !important;
-    height: 11in !important;
-    margin: 0 !important;
     box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    background: white !important;
+    color: black !important;
   }
 
-  [data-print-root] [data-print-paper],
-  [data-print-root] [data-print-paper] * {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
+  * {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
   }
 }

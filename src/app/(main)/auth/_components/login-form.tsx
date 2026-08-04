@@ -22,6 +22,7 @@ const formSchema = z.object({
 export function LoginForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -34,25 +35,40 @@ export function LoginForm() {
 
   async function onSubmit(data: z.infer<typeof formSchema>) {
     setLoading(true);
+    setErrorMessage(null);
+    console.log("[LoginForm] Submitting login for:", data.email);
+
     try {
       const res = await signInAction({ email: data.email, password: data.password });
+      console.log("[LoginForm] Received response from signInAction:", res);
 
-      if (!res.success) {
-        toast.error(res.error || "Invalid email or password");
+      if (!res || !res.success) {
+        const err = res?.error || "Invalid email or password";
+        setErrorMessage(err);
+        toast.error(err);
         setLoading(false);
         return;
       }
 
-      toast.success("Login successful! Redirecting...");
+      toast.success("Login successful! Redirecting to dashboard...");
       window.location.href = res.redirectUrl;
-    } catch {
-      toast.error("Failed to sign in. Please check your credentials.");
+    } catch (err: unknown) {
+      console.error("[LoginForm] Error executing signInAction:", err);
+      const msg = err instanceof Error ? err.message : "Failed to sign in. Please check credentials.";
+      setErrorMessage(msg);
+      toast.error(msg);
       setLoading(false);
     }
   }
 
   return (
     <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      {errorMessage && (
+        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs font-medium">
+          {errorMessage}
+        </div>
+      )}
+
       <FieldGroup className="gap-4">
         <Controller
           control={form.control}
@@ -64,7 +80,7 @@ export function LoginForm() {
                 {...field}
                 id="login-email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="admin@cleaningcompany.com"
                 autoComplete="email"
                 aria-invalid={fieldState.invalid}
               />

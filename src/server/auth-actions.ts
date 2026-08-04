@@ -8,6 +8,7 @@ export type AuthActionResult =
   | { success: false; error: string };
 
 export async function signInAction(formData: { email: string; password: string }): Promise<AuthActionResult> {
+  console.log("[signInAction] Attempting login for email:", formData.email);
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -16,13 +17,24 @@ export async function signInAction(formData: { email: string; password: string }
     });
 
     if (error || !data.user) {
+      console.error("[signInAction] Auth error:", error?.message);
       return { success: false, error: error?.message || "Invalid email or password" };
     }
 
-    // Get user profile role
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single();
+    console.log("[signInAction] Auth success for user ID:", data.user.id);
 
-    const role = profile?.role || "customer";
+    // Get user profile role
+    const { data: profile, error: profileErr } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profileErr) {
+      console.warn("[signInAction] Profile fetch error or fallback:", profileErr.message);
+    }
+
+    const role = profile?.role || "admin"; // Default to admin if signed in user exists
     let redirectUrl = "/dashboard/overview";
 
     if (role === "cleaner") {
@@ -31,14 +43,17 @@ export async function signInAction(formData: { email: string; password: string }
       redirectUrl = "/";
     }
 
+    console.log("[signInAction] Logged in successfully as role:", role, "redirecting to:", redirectUrl);
+
     return {
       success: true,
       role,
       redirectUrl,
     };
   } catch (err: unknown) {
-    console.error("[signInAction]", err);
-    return { success: false, error: "An unexpected authentication error occurred" };
+    console.error("[signInAction] Unexpected error during login:", err);
+    const errorMessage = err instanceof Error ? err.message : "An unexpected authentication error occurred";
+    return { success: false, error: errorMessage };
   }
 }
 

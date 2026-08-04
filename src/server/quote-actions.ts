@@ -48,28 +48,53 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
 
     const nextVersion = existingQuotes && existingQuotes.length > 0 ? existingQuotes[0].version + 1 : 1;
 
+    // Check if user.id exists in profiles to satisfy quotes_created_by_fkey
+    let createdBy: string | null = null;
+    if (user?.id) {
+      const { data: profile } = await adminSupabase.from("profiles").select("id").eq("id", user.id).maybeSingle();
+
+      if (profile) {
+        createdBy = profile.id;
+      }
+    }
+
     // Insert Quote using admin client to bypass RLS policies
-    const { data: newQuote, error: quoteErr } = await adminSupabase
-      .from("quotes")
-      .insert({
-        booking_id: input.booking_id,
-        version: nextVersion,
-        status: sendImmediately ? "sent" : "draft",
-        scope: input.scope || "Professional Cleaning Service as requested.",
-        terms: input.terms || "Payment due upon completion. Cancellation within 24h subject to £30 fee.",
-        expiry_date: input.expiry_date,
-        appointment_date: input.appointment_date || null,
-        appointment_time: input.appointment_time || null,
-        discount_amount: discount,
-        vat_rate: vatRate,
-        subtotal: discountedSubtotal,
-        vat_amount: vatAmount,
-        total: total,
-        sent_at: sendImmediately ? new Date().toISOString() : null,
-        created_by: user?.id || null,
-      })
-      .select("id, token")
-      .single();
+    let newQuote: { id: string; token: string } | null = null;
+    let quoteErr: any = null;
+
+    const insertPayload = {
+      booking_id: input.booking_id,
+      version: nextVersion,
+      status: sendImmediately ? "sent" : "draft",
+      scope: input.scope || "Professional Cleaning Service as requested.",
+      terms: input.terms || "Payment due upon completion. Cancellation within 24h subject to £30 fee.",
+      expiry_date: input.expiry_date,
+      appointment_date: input.appointment_date || null,
+      appointment_time: input.appointment_time || null,
+      discount_amount: discount,
+      vat_rate: vatRate,
+      subtotal: discountedSubtotal,
+      vat_amount: vatAmount,
+      total: total,
+      sent_at: sendImmediately ? new Date().toISOString() : null,
+      created_by: createdBy,
+    };
+
+    const res1 = await adminSupabase.from("quotes").insert(insertPayload).select("id, token").single();
+
+    if (res1.error) {
+      // Fallback: try inserting without created_by if foreign key constraint triggered
+      const res2 = await adminSupabase
+        .from("quotes")
+        .insert({ ...insertPayload, created_by: null })
+        .select("id, token")
+        .single();
+
+      newQuote = res2.data;
+      quoteErr = res2.error;
+    } else {
+      newQuote = res1.data;
+    }
 
     if (quoteErr || !newQuote) {
       console.error("[createQuoteAction] Insert error:", quoteErr);

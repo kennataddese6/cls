@@ -31,7 +31,52 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
 
     const adminSupabase = createSupabaseAdminClient();
 
-    // Calculate totals
+    // 1. Get or ensure valid admin profile ID to satisfy NOT-NULL & FK constraint
+    let createdBy: string | null = user?.id || null;
+
+    if (createdBy) {
+      // Ensure profile row exists for this user ID
+      await adminSupabase.from("profiles").upsert({
+        id: createdBy,
+        role: "admin",
+        full_name: user?.user_metadata?.full_name || "Company Admin",
+        email: user?.email || "admin@cleaningcompany.com",
+      });
+    } else {
+      // Find any existing admin profile or auth user
+      const { data: adminProfile } = await adminSupabase
+        .from("profiles")
+        .select("id")
+        .eq("role", "admin")
+        .limit(1)
+        .maybeSingle();
+
+      if (adminProfile) {
+        createdBy = adminProfile.id;
+      } else {
+        // Check auth users for admin
+        const { data: userList } = await adminSupabase.auth.admin.listUsers();
+        const adminUser = userList?.users?.find(
+          (u) => u.email === "admin@cleaningcompany.com" || u.user_metadata?.role === "admin",
+        );
+
+        if (adminUser) {
+          createdBy = adminUser.id;
+          await adminSupabase.from("profiles").upsert({
+            id: adminUser.id,
+            role: "admin",
+            full_name: "Company Admin",
+            email: adminUser.email,
+          });
+        }
+      }
+    }
+
+    if (!createdBy) {
+      throw new Error("Unable to resolve Admin profile ID for quote creation.");
+    }
+
+    // 2. Calculate totals
     const subtotal = input.items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
     const discount = input.discount_amount || 0;
     const discountedSubtotal = Math.max(0, subtotal - discount);
@@ -39,7 +84,7 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
     const vatAmount = (discountedSubtotal * vatRate) / 100;
     const total = discountedSubtotal + vatAmount;
 
-    // Check highest version for this booking
+    // 3. Check highest version for this booking
     const { data: existingQuotes } = await adminSupabase
       .from("quotes")
       .select("version")
@@ -48,60 +93,35 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
 
     const nextVersion = existingQuotes && existingQuotes.length > 0 ? existingQuotes[0].version + 1 : 1;
 
-    // Check if user.id exists in profiles to satisfy quotes_created_by_fkey
-    let createdBy: string | null = null;
-    if (user?.id) {
-      const { data: profile } = await adminSupabase.from("profiles").select("id").eq("id", user.id).maybeSingle();
-
-      if (profile) {
-        createdBy = profile.id;
-      }
-    }
-
-    // Insert Quote using admin client to bypass RLS policies
-    let newQuote: { id: string; token: string } | null = null;
-    let quoteErr: any = null;
-
-    const insertPayload = {
-      booking_id: input.booking_id,
-      version: nextVersion,
-      status: sendImmediately ? "sent" : "draft",
-      scope: input.scope || "Professional Cleaning Service as requested.",
-      terms: input.terms || "Payment due upon completion. Cancellation within 24h subject to £30 fee.",
-      expiry_date: input.expiry_date,
-      appointment_date: input.appointment_date || null,
-      appointment_time: input.appointment_time || null,
-      discount_amount: discount,
-      vat_rate: vatRate,
-      subtotal: discountedSubtotal,
-      vat_amount: vatAmount,
-      total: total,
-      sent_at: sendImmediately ? new Date().toISOString() : null,
-      created_by: createdBy,
-    };
-
-    const res1 = await adminSupabase.from("quotes").insert(insertPayload).select("id, token").single();
-
-    if (res1.error) {
-      // Fallback: try inserting without created_by if foreign key constraint triggered
-      const res2 = await adminSupabase
-        .from("quotes")
-        .insert({ ...insertPayload, created_by: null })
-        .select("id, token")
-        .single();
-
-      newQuote = res2.data;
-      quoteErr = res2.error;
-    } else {
-      newQuote = res1.data;
-    }
+    // 4. Insert Quote using admin client
+    const { data: newQuote, error: quoteErr } = await adminSupabase
+      .from("quotes")
+      .insert({
+        booking_id: input.booking_id,
+        version: nextVersion,
+        status: sendImmediately ? "sent" : "draft",
+        scope: input.scope || "Professional Cleaning Service as requested.",
+        terms: input.terms || "Payment due upon completion. Cancellation within 24h subject to £30 fee.",
+        expiry_date: input.expiry_date,
+        appointment_date: input.appointment_date || null,
+        appointment_time: input.appointment_time || null,
+        discount_amount: discount,
+        vat_rate: vatRate,
+        subtotal: discountedSubtotal,
+        vat_amount: vatAmount,
+        total: total,
+        sent_at: sendImmediately ? new Date().toISOString() : null,
+        created_by: createdBy,
+      })
+      .select("id, token")
+      .single();
 
     if (quoteErr || !newQuote) {
       console.error("[createQuoteAction] Insert error:", quoteErr);
       throw new Error(quoteErr?.message || "Failed to create quote");
     }
 
-    // Insert Quote Items
+    // 5. Insert Quote Items
     if (input.items.length > 0) {
       const itemsToInsert = input.items.map((item, index) => ({
         quote_id: newQuote.id,
@@ -115,12 +135,12 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
       await adminSupabase.from("quote_items").insert(itemsToInsert);
     }
 
-    // Update booking status if sent
+    // 6. Update booking status if sent
     if (sendImmediately) {
       await adminSupabase.from("bookings").update({ status: "quotation_sent" }).eq("id", input.booking_id);
 
       await adminSupabase.from("audit_logs").insert({
-        actor_id: user?.id || null,
+        actor_id: createdBy,
         actor_role: "admin",
         action: "quote.sent",
         record_type: "quotes",

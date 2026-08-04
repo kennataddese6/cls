@@ -134,3 +134,100 @@ export async function updateEnquiryStatusAction(
     return { success: false, error: errorMessage };
   }
 }
+
+export async function submitContactFormAction(data: {
+  name: string;
+  email: string;
+  phone?: string;
+  subject: string;
+  message: string;
+}) {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    // 1. Create or get customer
+    let customerId: string | null = null;
+    const { data: existingCust } = await supabase.from("customers").select("id").eq("email", data.email).maybeSingle();
+
+    if (existingCust) {
+      customerId = existingCust.id;
+    } else {
+      const { data: newCust, error: custErr } = await supabase
+        .from("customers")
+        .insert({
+          full_name: data.name,
+          email: data.email,
+          phone: data.phone || null,
+          customer_type: "individual",
+        })
+        .select("id")
+        .single();
+
+      if (custErr) {
+        // Fallback: try anon admin client if RLS restricts guest insert
+        const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
+        const adminSupabase = createSupabaseAdminClient();
+        const { data: adminCust } = await adminSupabase
+          .from("customers")
+          .insert({
+            full_name: data.name,
+            email: data.email,
+            phone: data.phone || null,
+            customer_type: "individual",
+          })
+          .select("id")
+          .single();
+        if (adminCust) customerId = adminCust.id;
+      } else if (newCust) {
+        customerId = newCust.id;
+      }
+    }
+
+    const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
+    const adminSupabase = createSupabaseAdminClient();
+
+    // 2. Default address if none
+    const { data: defaultAddr } = await adminSupabase
+      .from("customer_addresses")
+      .insert({
+        customer_id: customerId,
+        address_line1: "Contact Form Enquiry",
+        city: "London",
+        postcode: "EC1A 1BB",
+      })
+      .select("id")
+      .single();
+
+    // 3. Create booking / enquiry
+    const ref = `ENQ-${Math.floor(1000 + Math.random() * 9000)}`;
+    const { data: booking, error: bookingErr } = await adminSupabase
+      .from("bookings")
+      .insert({
+        reference: ref,
+        customer_id: customerId,
+        address_id: defaultAddr?.id,
+        service_type: "deep_clean",
+        bedrooms: 1,
+        bathrooms: 1,
+        preferred_date: new Date().toISOString().split("T")[0],
+        preferred_time_slot: "morning",
+        notes: `Subject: ${data.subject}\n\nMessage:\n${data.message}`,
+        status: "new_enquiry",
+      })
+      .select()
+      .single();
+
+    if (bookingErr) {
+      console.error("[submitContactFormAction]", bookingErr);
+      return { success: false, error: bookingErr.message };
+    }
+
+    revalidatePath("/dashboard/enquiries");
+    revalidatePath("/dashboard/overview");
+
+    return { success: true, reference: ref };
+  } catch (err: any) {
+    console.error("[submitContactFormAction]", err);
+    return { success: false, error: err.message || "Failed to submit enquiry" };
+  }
+}

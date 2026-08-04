@@ -1,10 +1,8 @@
 import { Clock, Mail, MapPin, Phone } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { ContactForm } from "./_components/contact-form";
 
 export default function ContactPage() {
   return (
@@ -80,40 +78,7 @@ export default function ContactPage() {
               <CardTitle className="text-xl">Send Us a Message</CardTitle>
             </CardHeader>
             <CardContent>
-              <form className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label htmlFor="contact-name" className="text-sm font-medium">
-                      Your Name
-                    </label>
-                    <Input id="contact-name" placeholder="John Doe" />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="contact-email" className="text-sm font-medium">
-                      Email Address
-                    </label>
-                    <Input id="contact-email" type="email" placeholder="john@example.com" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="contact-subject" className="text-sm font-medium">
-                    Subject
-                  </label>
-                  <Input id="contact-subject" placeholder="Quotation enquiry / General question" />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="contact-message" className="text-sm font-medium">
-                    Message
-                  </label>
-                  <Textarea id="contact-message" rows={5} placeholder="How can we help you?" />
-                </div>
-
-                <Button type="button" className="w-full">
-                  Send Message
-                </Button>
-              </form>
+              <ContactForm />
             </CardContent>
           </Card>
         </div>

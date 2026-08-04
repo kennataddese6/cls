@@ -752,6 +752,9 @@ export async function uploadJobPhotoAction(formData: FormData) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Ensure job-photos bucket is publicly accessible
+    await adminSupabase.storage.updateBucket("job-photos", { public: true }).catch(() => {});
+
     // 1. Upload to Supabase Storage bucket 'job-photos'
     const { error: storageErr } = await adminSupabase.storage.from("job-photos").upload(filePath, buffer, {
       contentType: file.type || "image/jpeg",

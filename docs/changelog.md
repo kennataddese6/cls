@@ -19,6 +19,12 @@ All notable changes to the CLS project, in reverse chronological order.
 - `docs/decisions.md` — Open decisions tracker
 - `docs/changelog.md` — Project changelog
 
+### Added
+- Installed `@supabase/supabase-js` and `@supabase/ssr`
+- Created Supabase client factories (`src/lib/supabase/server.ts`, `client.ts`, `middleware.ts`)
+- Added `src/middleware.ts` for session refresh and role-based route guards
+- Added `.env.example` and `.env.local` for Supabase configuration
+
 ### Changed
 - Updated `app-config.ts` with Cleaning Management System identity and metadata
 - Replaced demo sidebar items in `sidebar-items.ts` with CLS admin navigation structure

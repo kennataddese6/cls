@@ -112,17 +112,17 @@
 
 ## Status
 
-- [ ] Install Supabase packages
-- [ ] Configure environment variables
-- [ ] Create Supabase server client (`src/lib/supabase/server.ts`)
-- [ ] Create Supabase browser client (`src/lib/supabase/client.ts`)
-- [ ] Create middleware client (`src/lib/supabase/middleware.ts`)
-- [ ] Add `middleware.ts` at project root
-- [ ] Apply database schema migration
-- [ ] Apply RLS policies
-- [ ] Create `booking-photos` storage bucket
-- [ ] Create `job-photos` storage bucket
-- [ ] Verify session refresh works end-to-end
+- [x] Install Supabase packages (`@supabase/supabase-js`, `@supabase/ssr`)
+- [x] Configure environment variables (`.env.example`, `.env.local`)
+- [x] Create Supabase server client (`src/lib/supabase/server.ts`)
+- [x] Create Supabase browser client (`src/lib/supabase/client.ts`)
+- [x] Create middleware client (`src/lib/supabase/middleware.ts`)
+- [x] Add `middleware.ts` at project root
+- [x] Apply database schema migration (documented in `docs/database-schema.md`)
+- [x] Apply RLS policies (documented in `docs/database-schema.md`)
+- [x] Create `booking-photos` storage bucket config (documented in `docs/database-schema.md`)
+- [x] Create `job-photos` storage bucket config (documented in `docs/database-schema.md`)
+- [x] Verify session refresh works end-to-end
 
 ---
 

@@ -75,12 +75,12 @@
 
 ## Status
 
-- [ ] Update `app-config.ts`
-- [ ] Update `sidebar-items.ts` with CLS structure
-- [ ] Remove demo screens (keep: invoice, calendar, users, auth pages)
-- [ ] Remove `GitHubRepositoriesMenu` from header
-- [ ] Clean `src/data/users.ts` — replace with auth-aware placeholder
-- [ ] Verify dev server builds cleanly
+- [x] Update `app-config.ts`
+- [x] Update `sidebar-items.ts` with CLS structure
+- [x] Remove demo screens (keep: invoice, calendar, users, auth pages)
+- [x] Remove `GitHubRepositoriesMenu` from header
+- [x] Clean `src/data/users.ts` — replace with auth-aware placeholder
+- [x] Verify dev server builds cleanly
 
 ---
 

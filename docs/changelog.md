@@ -17,7 +17,14 @@ All notable changes to the CLS project, in reverse chronological order.
 - `docs/security.md` — Security requirements and implementation
 - `docs/coding-standards.md` — Code conventions and patterns
 - `docs/decisions.md` — Open decisions tracker
-- `docs/changelog.md` — This file
+- `docs/changelog.md` — Project changelog
+
+### Changed
+- Updated `app-config.ts` with Cleaning Management System identity and metadata
+- Replaced demo sidebar items in `sidebar-items.ts` with CLS admin navigation structure
+- Removed demo `GitHubRepositoriesMenu` from dashboard layout header
+- Updated `src/data/users.ts` with CLS admin placeholder
+- Set `/dashboard` root to redirect to `/dashboard/overview`
 
 ---
 

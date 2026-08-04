@@ -648,11 +648,11 @@ export async function updateCleanerJobStatusAction(input: {
       const adminSupabase = createSupabaseAdminClient();
       const { data: photos } = await adminSupabase
         .from("photos")
-        .select("id, photo_type, category")
-        .eq("booking_id", job.booking_id);
+        .select("*")
+        .or(`booking_id.eq.${job.booking_id},booking_id.eq.${job.id}`);
 
-      const hasBefore = photos?.some((p) => p.photo_type === "before" || (p as any).category === "before");
-      const hasAfter = photos?.some((p) => p.photo_type === "after" || (p as any).category === "after");
+      const hasBefore = photos?.some((p: any) => p.category === "before" || p.photo_type === "before");
+      const hasAfter = photos?.some((p: any) => p.category === "after" || p.photo_type === "after");
 
       if (!photos || photos.length === 0 || !hasBefore || !hasAfter) {
         return {

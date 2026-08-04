@@ -1,19 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Upload, CheckCircle2, Sparkles, Image as ImageIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Camera, Upload, Sparkles, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 import { uploadJobPhotoAction } from "@/server/job-actions";
 
-interface PhotoItem {
+export interface PhotoItem {
   id: string;
-  category: "before" | "after";
-  storage_path: string;
+  category?: "before" | "after";
+  photo_type?: "before" | "after";
+  storage_path?: string;
+  url?: string;
   created_at?: string;
 }
 
@@ -26,6 +26,11 @@ interface Props {
 export function PhotoUploadSection({ jobId, bookingId, existingPhotos }: Props) {
   const router = useRouter();
   const [uploadingCategory, setUploadingCategory] = useState<"before" | "after" | null>(null);
+  const [photos, setPhotos] = useState<PhotoItem[]>(existingPhotos || []);
+
+  useEffect(() => {
+    setPhotos(existingPhotos || []);
+  }, [existingPhotos]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, category: "before" | "after") => {
     const file = e.target.files?.[0];
@@ -41,11 +46,20 @@ export function PhotoUploadSection({ jobId, bookingId, existingPhotos }: Props) 
 
       const res = await uploadJobPhotoAction(formData);
 
-      if (!res.success) {
+      if (!res.success || !res.url) {
         toast.error(res.error || "Failed to upload photo");
         return;
       }
 
+      const newPhoto: PhotoItem = {
+        id: `photo-${Date.now()}`,
+        category,
+        photo_type: category,
+        storage_path: res.url,
+        url: res.url,
+      };
+
+      setPhotos((prev) => [newPhoto, ...prev]);
       toast.success(`${category.toUpperCase()} photo uploaded successfully!`);
       router.refresh();
     } catch {
@@ -55,8 +69,8 @@ export function PhotoUploadSection({ jobId, bookingId, existingPhotos }: Props) 
     }
   };
 
-  const beforePhotos = existingPhotos.filter((p) => p.category === "before");
-  const afterPhotos = existingPhotos.filter((p) => p.category === "after");
+  const beforePhotos = photos.filter((p) => (p.category || p.photo_type) === "before");
+  const afterPhotos = photos.filter((p) => (p.category || p.photo_type) === "after");
 
   return (
     <div className="space-y-6 pt-4 border-t border-border">
@@ -65,7 +79,7 @@ export function PhotoUploadSection({ jobId, bookingId, existingPhotos }: Props) 
           <Camera className="size-4 text-primary" /> Before & After Evidence Photos
         </h3>
         <Badge variant="outline" className="text-xs">
-          {existingPhotos.length} Uploaded
+          {photos.length} Uploaded
         </Badge>
       </div>
 
@@ -96,11 +110,18 @@ export function PhotoUploadSection({ jobId, bookingId, existingPhotos }: Props) 
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              {beforePhotos.map((p) => (
-                <div key={p.id} className="relative h-28 rounded-lg overflow-hidden border border-border bg-card">
-                  <Image src={p.storage_path} alt="Before clean" fill className="object-cover" />
-                </div>
-              ))}
+              {beforePhotos.map((p, idx) => {
+                const photoSrc = p.storage_path || p.url || "";
+                return (
+                  <div
+                    key={p.id || idx}
+                    className="relative h-32 rounded-lg overflow-hidden border border-border bg-black/5"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoSrc} alt="Before clean photo" className="w-full h-full object-cover" />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -131,11 +152,18 @@ export function PhotoUploadSection({ jobId, bookingId, existingPhotos }: Props) 
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              {afterPhotos.map((p) => (
-                <div key={p.id} className="relative h-28 rounded-lg overflow-hidden border border-border bg-card">
-                  <Image src={p.storage_path} alt="After clean" fill className="object-cover" />
-                </div>
-              ))}
+              {afterPhotos.map((p, idx) => {
+                const photoSrc = p.storage_path || p.url || "";
+                return (
+                  <div
+                    key={p.id || idx}
+                    className="relative h-32 rounded-lg overflow-hidden border border-border bg-black/5"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoSrc} alt="After clean photo" className="w-full h-full object-cover" />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

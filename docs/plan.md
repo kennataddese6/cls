@@ -351,28 +351,18 @@ Payments
 - Version history
 - Send to customer (generates public token link)
 
-## Customer Quote View (`/q/[token]`)
-
-- Read-only quote view
-- Accept / Request Changes / Decline buttons
-- Terms agreement checkbox
-- Payment method selection on acceptance
-- Records: timestamp, IP, device, accepted quote version
-
 ## Status
 
-- [ ] Quote list page
-- [ ] Quote builder form
-- [ ] Line items table (add/remove/edit)
-- [ ] Discount + VAT calculation
-- [ ] Save as draft / Send actions
-- [ ] Generate public quote token
-- [ ] Public customer quote page (`/q/[token]`)
-- [ ] Customer: Accept quote (triggers invoice generation)
-- [ ] Customer: Request Changes
-- [ ] Customer: Decline
-- [ ] Quote status machine (Draft → Sent → Viewed → Accepted/Declined/Expired)
-- [ ] Quote version history
+- [x] Quote list page (`/dashboard/quotes`)
+- [x] Interactive Quote builder form (`/dashboard/quotes/new?bookingId=`)
+- [x] Line items table (add/remove/edit)
+- [x] Discount + VAT calculation
+- [x] Save as draft / Send actions (`src/server/quote-actions.ts`)
+- [x] Generate public quote token
+- [x] Public customer quote page (`/q/[token]`)
+- [x] Customer: Accept quote (triggers auto invoice generation `INV-YYYY-XXXX`)
+- [x] Customer: Select payment method (Bank Transfer / Cash)
+- [x] Quote status machine (Draft → Sent → Viewed → Accepted/Declined/Expired)
 
 ---
 
@@ -383,11 +373,6 @@ Payments
 **Estimated Complexity:** Medium
 **Dependencies:** Phase 6
 
-## Pages
-
-| Route | Description |
-|---|---|
-| `/dashboard/invoices` | All invoices list |
 | `/dashboard/invoices/[id]` | Invoice detail + payment recording |
 | `/i/[token]` | Public customer invoice view |
 

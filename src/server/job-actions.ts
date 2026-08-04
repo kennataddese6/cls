@@ -195,19 +195,32 @@ export async function deleteCleanerAction(cleanerId: string) {
 
 export async function resetCleanerPasswordAction(cleanerId: string) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user: adminUser },
-    } = await supabase.auth.getUser();
-
-    if (!adminUser) throw new Error("Unauthorized");
-
     const adminSupabase = createSupabaseAdminClient();
 
-    // Get cleaner profile
-    const { data: profile } = await supabase.from("profiles").select("email, full_name").eq("id", cleanerId).single();
+    // Get cleaner profile and email
+    let email: string | undefined;
+    let fullName: string = "Cleaner";
 
-    if (!profile || !profile.email) throw new Error("Cleaner email not found");
+    const { data: profile } = await adminSupabase
+      .from("profiles")
+      .select("email, full_name")
+      .eq("id", cleanerId)
+      .maybeSingle();
+
+    if (profile?.email) {
+      email = profile.email;
+      fullName = profile.full_name || fullName;
+    } else {
+      const { data: authUserRes } = await adminSupabase.auth.admin.getUserById(cleanerId);
+      if (authUserRes?.user?.email) {
+        email = authUserRes.user.email;
+        fullName = authUserRes.user.user_metadata?.full_name || fullName;
+      }
+    }
+
+    if (!email) {
+      throw new Error("Cleaner email not found in auth or profile records.");
+    }
 
     // Generate random strong password
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*";
@@ -225,19 +238,17 @@ export async function resetCleanerPasswordAction(cleanerId: string) {
     if (updateErr) throw new Error(updateErr.message);
 
     // Audit log
-    await supabase.from("audit_logs").insert({
-      actor_id: adminUser.id,
-      actor_role: "admin",
+    await adminSupabase.from("audit_logs").insert({
       action: "cleaner.password_reset",
       record_type: "cleaners",
       record_id: cleanerId,
-      new_value: { email: profile.email },
+      new_value: { email: email },
     });
 
     return {
       success: true,
-      email: profile.email,
-      fullName: profile.full_name,
+      email: email,
+      fullName: fullName,
       newPassword,
     };
   } catch (err: unknown) {

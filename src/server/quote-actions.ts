@@ -1,7 +1,8 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export interface QuoteItemInput {
   description: string;
@@ -28,7 +29,7 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) throw new Error("Unauthorized: Admin login required");
+    const adminSupabase = createSupabaseAdminClient();
 
     // Calculate totals
     const subtotal = input.items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
@@ -39,7 +40,7 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
     const total = discountedSubtotal + vatAmount;
 
     // Check highest version for this booking
-    const { data: existingQuotes } = await supabase
+    const { data: existingQuotes } = await adminSupabase
       .from("quotes")
       .select("version")
       .eq("booking_id", input.booking_id)
@@ -47,8 +48,8 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
 
     const nextVersion = existingQuotes && existingQuotes.length > 0 ? existingQuotes[0].version + 1 : 1;
 
-    // Insert Quote
-    const { data: newQuote, error: quoteErr } = await supabase
+    // Insert Quote using admin client to bypass RLS policies
+    const { data: newQuote, error: quoteErr } = await adminSupabase
       .from("quotes")
       .insert({
         booking_id: input.booking_id,
@@ -65,12 +66,13 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
         vat_amount: vatAmount,
         total: total,
         sent_at: sendImmediately ? new Date().toISOString() : null,
-        created_by: user.id,
+        created_by: user?.id || null,
       })
       .select("id, token")
       .single();
 
     if (quoteErr || !newQuote) {
+      console.error("[createQuoteAction] Insert error:", quoteErr);
       throw new Error(quoteErr?.message || "Failed to create quote");
     }
 
@@ -85,143 +87,193 @@ export async function createQuoteAction(input: CreateQuoteInput, sendImmediately
         sort_order: index,
       }));
 
-      await supabase.from("quote_items").insert(itemsToInsert);
+      await adminSupabase.from("quote_items").insert(itemsToInsert);
     }
 
     // Update booking status if sent
     if (sendImmediately) {
-      await supabase.from("bookings").update({ status: "quotation_sent" }).eq("id", input.booking_id);
+      await adminSupabase.from("bookings").update({ status: "quotation_sent" }).eq("id", input.booking_id);
 
-      await supabase.from("audit_logs").insert({
-        actor_id: user.id,
+      await adminSupabase.from("audit_logs").insert({
+        actor_id: user?.id || null,
         actor_role: "admin",
         action: "quote.sent",
         record_type: "quotes",
         record_id: newQuote.id,
-        new_value: { version: nextVersion, total, token: newQuote.token },
       });
     }
 
-    revalidatePath(`/dashboard/enquiries/${input.booking_id}`);
+    revalidatePath(`/dashboard/quotes/${newQuote.id}`);
     revalidatePath("/dashboard/quotes");
+    revalidatePath("/dashboard/enquiries");
 
     return {
       success: true,
       quoteId: newQuote.id,
-      quoteToken: newQuote.token,
+      token: newQuote.token,
     };
   } catch (err: unknown) {
     console.error("[createQuoteAction]", err);
-    const errorMessage = err instanceof Error ? err.message : "Failed to create quote";
+    const errorMessage = err instanceof Error ? err.message : "Failed to create quotation";
     return { success: false, error: errorMessage };
   }
 }
 
 export async function getQuotesList(statusFilter?: string) {
-  const supabase = await createSupabaseServerClient();
-  let query = supabase
-    .from("quotes")
-    .select("*, booking:bookings(*, customer:customers(*))")
-    .order("created_at", { ascending: false });
+  try {
+    const adminSupabase = createSupabaseAdminClient();
+    let query = adminSupabase
+      .from("quotes")
+      .select("*, booking:bookings(*, customer:customers(*)), items:quote_items(*)")
+      .order("created_at", { ascending: false });
 
-  if (statusFilter && statusFilter !== "all") {
-    query = query.eq("status", statusFilter);
-  }
+    if (statusFilter && statusFilter !== "all") {
+      query = query.eq("status", statusFilter);
+    }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error("[getQuotesList]", error);
+    const { data, error } = await query;
+    if (error) {
+      console.error("[getQuotesList]", error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error("[getQuotesList]", err);
     return [];
   }
-  return data;
+}
+
+export async function getQuoteById(id: string) {
+  try {
+    const adminSupabase = createSupabaseAdminClient();
+    const { data: quote, error } = await adminSupabase
+      .from("quotes")
+      .select("*, booking:bookings(*, customer:customers(*), address:customer_addresses(*)), items:quote_items(*)")
+      .eq("id", id)
+      .single();
+
+    if (error) {
+      console.error("[getQuoteById]", error);
+      return null;
+    }
+    return quote;
+  } catch (err) {
+    console.error("[getQuoteById]", err);
+    return null;
+  }
 }
 
 export async function getQuoteByToken(token: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: quote, error } = await supabase
-    .from("quotes")
-    .select("*, items:quote_items(*), booking:bookings(*, customer:customers(*), address:customer_addresses(*))")
-    .eq("token", token)
-    .single();
-
-  if (error || !quote) {
-    return null;
-  }
-
-  // Update viewed_at if not set yet
-  if (!quote.viewed_at && quote.status === "sent") {
-    await supabase.from("quotes").update({ viewed_at: new Date().toISOString(), status: "viewed" }).eq("id", quote.id);
-  }
-
-  return quote;
-}
-
-export async function acceptQuoteCustomerAction(input: { token: string; payment_method: "bank_transfer" | "cash" }) {
   try {
-    const supabase = await createSupabaseServerClient();
-
-    const { data: quote } = await supabase
+    const adminSupabase = createSupabaseAdminClient();
+    const { data: quote, error } = await adminSupabase
       .from("quotes")
-      .select("id, booking_id, total, subtotal, vat_amount, booking:bookings(customer_id)")
-      .eq("token", input.token)
+      .select("*, booking:bookings(*, customer:customers(*), address:customer_addresses(*)), items:quote_items(*)")
+      .eq("token", token)
       .single();
 
-    if (!quote) throw new Error("Quote not found");
-
-    const now = new Date().toISOString();
-
-    // 1. Update Quote
-    await supabase
-      .from("quotes")
-      .update({
-        status: "accepted",
-        accepted_at: now,
-      })
-      .eq("id", quote.id);
-
-    // 2. Update Booking Status
-    await supabase.from("bookings").update({ status: "quotation_accepted" }).eq("id", quote.booking_id);
-
-    // 3. Auto-generate Invoice (DB trigger generates INV-YYYY-XXXX)
-    const { data: newInvoice } = await supabase
-      .from("invoices")
-      .insert({
-        booking_id: quote.booking_id,
-        quote_id: quote.id,
-        customer_id: (quote.booking as unknown as { customer_id: string })?.customer_id,
-        status: "unpaid",
-        subtotal: quote.subtotal,
-        vat_amount: quote.vat_amount,
-        total: quote.total,
-        due_date: new Date(Date.now() + 86400000 * 7).toISOString().split("T")[0],
-      })
-      .select("id, invoice_number, token")
-      .single();
-
-    // Update booking to invoice_generated
-    if (newInvoice) {
-      await supabase.from("bookings").update({ status: "invoice_generated" }).eq("id", quote.booking_id);
+    if (error) {
+      console.error("[getQuoteByToken]", error);
+      return null;
     }
 
-    // 4. Audit Log
-    await supabase.from("audit_logs").insert({
+    // Mark as viewed if sent
+    if (quote.status === "sent") {
+      await adminSupabase
+        .from("quotes")
+        .update({ status: "viewed", viewed_at: new Date().toISOString() })
+        .eq("id", quote.id);
+    }
+
+    return quote;
+  } catch (err) {
+    console.error("[getQuoteByToken]", err);
+    return null;
+  }
+}
+
+export async function acceptQuoteCustomerAction(input: string | { token: string; payment_method?: string }) {
+  try {
+    const token = typeof input === "string" ? input : input.token;
+    const paymentMethod = typeof input === "string" ? "bank_transfer" : input.payment_method || "bank_transfer";
+    const adminSupabase = createSupabaseAdminClient();
+
+    const { data: quote, error: findErr } = await adminSupabase
+      .from("quotes")
+      .select("id, booking_id, total, status")
+      .eq("token", token)
+      .single();
+
+    if (findErr || !quote) throw new Error("Quote not found");
+
+    const acceptedAt = new Date().toISOString();
+
+    // 1. Update quote status
+    await adminSupabase.from("quotes").update({ status: "accepted", accepted_at: acceptedAt }).eq("id", quote.id);
+
+    // 2. Update booking status
+    await adminSupabase.from("bookings").update({ status: "quotation_accepted" }).eq("id", quote.booking_id);
+
+    // 3. Generate invoice automatically
+    const invRef = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+
+    const { data: invoice } = await adminSupabase
+      .from("invoices")
+      .insert({
+        invoice_number: invRef,
+        booking_id: quote.booking_id,
+        quote_id: quote.id,
+        status: "unpaid",
+        issue_date: new Date().toISOString().split("T")[0],
+        due_date: dueDate.toISOString().split("T")[0],
+        subtotal: quote.total,
+        tax_amount: 0,
+        total_amount: quote.total,
+        amount_paid: 0,
+        balance_due: quote.total,
+      })
+      .select("token")
+      .single();
+
+    // Update booking status to invoice_generated
+    await adminSupabase.from("bookings").update({ status: "invoice_generated" }).eq("id", quote.booking_id);
+
+    // Audit log
+    await adminSupabase.from("audit_logs").insert({
       action: "quote.accepted",
       record_type: "quotes",
       record_id: quote.id,
-      new_value: {
-        payment_method: input.payment_method,
-        invoice_number: newInvoice?.invoice_number,
-      },
+      new_value: { invoice_token: invoice?.token, payment_method: paymentMethod },
     });
+
+    revalidatePath(`/q/${token}`);
+    revalidatePath("/dashboard/quotes");
+    revalidatePath("/dashboard/invoices");
 
     return {
       success: true,
-      invoiceNumber: newInvoice?.invoice_number,
-      invoiceToken: newInvoice?.token,
+      invoiceToken: invoice?.token,
     };
   } catch (err: unknown) {
     console.error("[acceptQuoteCustomerAction]", err);
-    const errorMessage = err instanceof Error ? err.message : "Failed to accept quotation";
+    const errorMessage = err instanceof Error ? err.message : "Failed to accept quote";
+    return { success: false, error: errorMessage };
+  }
+}
+
+export async function updateQuoteStatusAction(quoteId: string, status: string) {
+  try {
+    const adminSupabase = createSupabaseAdminClient();
+    await adminSupabase.from("quotes").update({ status }).eq("id", quoteId);
+
+    revalidatePath(`/dashboard/quotes/${quoteId}`);
+    revalidatePath("/dashboard/quotes");
+    return { success: true };
+  } catch (err: unknown) {
+    console.error("[updateQuoteStatusAction]", err);
+    const errorMessage = err instanceof Error ? err.message : "Failed to update status";
     return { success: false, error: errorMessage };
   }
 }

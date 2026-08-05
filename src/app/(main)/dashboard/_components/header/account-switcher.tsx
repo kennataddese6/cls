@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
+import Link from "next/link";
 import { BadgeCheck, Bell, Check, CreditCard, LogOut } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn, getInitials } from "@/lib/utils";
+import { signOutAction } from "@/server/auth-actions";
 
 export function AccountSwitcher({
   users,
@@ -32,10 +33,14 @@ export function AccountSwitcher({
     return null;
   }
 
+  const handleSignOut = async () => {
+    await signOutAction();
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Avatar className="size-8 rounded-lg">
+        <Avatar className="size-8 rounded-lg cursor-pointer">
           <AvatarImage src={activeUser.avatar || undefined} alt={activeUser.name} />
           <AvatarFallback>{getInitials(activeUser.name)}</AvatarFallback>
         </Avatar>
@@ -44,7 +49,7 @@ export function AccountSwitcher({
         {users.map((user) => (
           <DropdownMenuItem
             key={user.email}
-            className={cn("p-0", user.id === activeUser.id && "bg-accent/50")}
+            className={cn("p-0 cursor-pointer", user.id === activeUser.id && "bg-accent/50")}
             aria-current={user.id === activeUser.id ? "true" : undefined}
             onClick={() => setActiveUser(user)}
           >
@@ -70,22 +75,28 @@ export function AccountSwitcher({
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <BadgeCheck />
-            Account
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href="/dashboard/users" className="flex w-full items-center gap-2">
+              <BadgeCheck className="size-4" />
+              Account & Users
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem>
-            <CreditCard />
-            Billing
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href="/dashboard/invoices" className="flex w-full items-center gap-2">
+              <CreditCard className="size-4" />
+              Billing & Invoices
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Bell />
-            Notifications
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href="/dashboard/reviews" className="flex w-full items-center gap-2">
+              <Bell className="size-4" />
+              Customer Reviews
+            </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <LogOut />
+        <DropdownMenuItem onClick={handleSignOut} className="text-red-600 dark:text-red-400 cursor-pointer">
+          <LogOut className="size-4" />
           Log out
         </DropdownMenuItem>
       </DropdownMenuContent>

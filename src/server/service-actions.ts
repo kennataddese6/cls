@@ -91,16 +91,25 @@ let MEMORY_SERVICES: ServiceItem[] = [
   },
 ];
 
+function parseNumericPrice(priceStr: string, basePrice?: number): number {
+  if (basePrice != null && !isNaN(basePrice) && basePrice > 0) {
+    return basePrice;
+  }
+  const match = (priceStr || "").match(/\d+(\.\d+)?/);
+  return match ? parseFloat(match[0]) : 0;
+}
+
 export async function getServicesListAction(): Promise<ServiceItem[]> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase.from("services").select("*").order("created_at", { ascending: true });
+    const { data, error } = await supabase.from("services").select("*");
 
     if (error || !data || data.length === 0) {
-      return MEMORY_SERVICES;
+      const sortedMemory = [...MEMORY_SERVICES].sort((a, b) => parseNumericPrice(a.price) - parseNumericPrice(b.price));
+      return sortedMemory;
     }
 
-    return data.map((item) => {
+    const servicesList = data.map((item) => {
       const titleStr = item.title || item.name || "Cleaning Service";
       const rawList = item.checklist;
       const checklist =
@@ -117,10 +126,17 @@ export async function getServicesListAction(): Promise<ServiceItem[]> {
         duration: durationStr,
         description: item.description || "",
         checklist: checklist,
+        numericPrice: parseNumericPrice(priceStr, item.base_price),
       };
-    }) as ServiceItem[];
+    });
+
+    // Sort by price ascending (cheapest first)
+    servicesList.sort((a, b) => a.numericPrice - b.numericPrice);
+
+    return servicesList.map(({ numericPrice, ...rest }) => rest) as ServiceItem[];
   } catch {
-    return MEMORY_SERVICES;
+    const sortedMemory = [...MEMORY_SERVICES].sort((a, b) => parseNumericPrice(a.price) - parseNumericPrice(b.price));
+    return sortedMemory;
   }
 }
 

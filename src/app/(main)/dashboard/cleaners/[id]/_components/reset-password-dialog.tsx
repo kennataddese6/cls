@@ -48,7 +48,11 @@ export function ResetPasswordDialog({ cleanerId, cleanerName }: { cleanerId: str
 
   const copyMessage = () => {
     if (!credentials) return;
-    const msg = `Hello ${cleanerName},\n\nYour cleaner account password has been reset by administration.\n\nLogin Email: ${credentials.email}\nNew Password: ${credentials.newPassword}\n\nLogin to your cleaner portal here:\nhttp://localhost:3000/auth/v1/login`;
+    const baseUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_APP_URL || "https://cls-six.vercel.app";
+    const msg = `Hello ${cleanerName},\n\nYour cleaner account password has been reset by administration.\n\nLogin Email: ${credentials.email}\nNew Password: ${credentials.newPassword}\n\nLogin to your cleaner portal here:\n${baseUrl}/auth/v1/login`;
     navigator.clipboard.writeText(msg);
     setCopied(true);
     toast.success("Credentials message copied to clipboard!");

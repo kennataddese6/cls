@@ -23,6 +23,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { type BookingSubmissionValues, submitBookingAction } from "@/server/booking-actions";
 import { getServicesListAction, type ServiceItem } from "@/server/service-actions";
 
@@ -33,6 +34,7 @@ function BookingContent() {
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [servicesLoading, setServicesLoading] = useState(true);
   const [dbServices, setDbServices] = useState<ServiceItem[]>([]);
 
   useEffect(() => {
@@ -42,7 +44,10 @@ function BookingContent() {
         if (services && services.length > 0) {
           setDbServices(services);
         }
-      } catch {}
+      } catch {
+      } finally {
+        setServicesLoading(false);
+      }
     }
     fetchDbServices();
   }, []);
@@ -224,34 +229,51 @@ function BookingContent() {
               <h3 className="font-semibold text-lg">Select Service Type</h3>
               <p className="text-xs text-muted-foreground">Choose the type of cleaning service you require.</p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {servicesList.map((s) => {
-                  const Icon = s.icon;
-                  const selected = formData.service_type === s.id;
-                  return (
-                    <div
-                      key={s.id}
-                      onClick={() => updateField("service_type", s.id)}
-                      className={`p-5 rounded-xl border cursor-pointer transition-all space-y-3 ${
-                        selected
-                          ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
-                          : "border-border hover:border-primary/40 bg-card"
-                      }`}
-                    >
+              {servicesLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="p-5 rounded-xl border border-border bg-card/60 animate-pulse space-y-3">
                       <div className="flex items-center justify-between">
-                        <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                          <Icon className="size-5" />
-                        </div>
-                        <span className="font-bold text-sm text-primary font-mono">{s.price}</span>
+                        <Skeleton className="size-10 rounded-lg" />
+                        <Skeleton className="h-5 w-20 rounded-md" />
                       </div>
-                      <div>
-                        <h4 className="font-semibold text-base">{s.name}</h4>
-                        <p className="text-xs text-muted-foreground leading-relaxed mt-1">{s.desc}</p>
+                      <div className="space-y-2">
+                        <Skeleton className="h-5 w-3/4 rounded-md" />
+                        <Skeleton className="h-3.5 w-full rounded-md" />
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {servicesList.map((s) => {
+                    const Icon = s.icon;
+                    const selected = formData.service_type === s.id;
+                    return (
+                      <div
+                        key={s.id}
+                        onClick={() => updateField("service_type", s.id)}
+                        className={`p-5 rounded-xl border cursor-pointer transition-all space-y-3 ${
+                          selected
+                            ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
+                            : "border-border hover:border-primary/40 bg-card"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                            <Icon className="size-5" />
+                          </div>
+                          <span className="font-bold text-sm text-primary font-mono">{s.price}</span>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-base">{s.name}</h4>
+                          <p className="text-xs text-muted-foreground leading-relaxed mt-1">{s.desc}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

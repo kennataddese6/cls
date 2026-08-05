@@ -11,7 +11,8 @@ export const APP_CONFIG = {
   version: packageJson.version,
   copyright: `© ${currentYear}, Sam Spotless Cleaning.`,
   meta: {
-    title: "Sam Spotless Cleaning - Admin Dashboard",
-    description: "Comprehensive professional cleaning management system for Sam Spotless Cleaning.",
+    title: "Sam Spotless Cleaning",
+    description:
+      "Comprehensive professional cleaning in UK. We provide a wide range of cleaning services for homes and businesses, ensuring a spotless environment.",
   },
 };

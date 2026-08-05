@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 import { getCustomersList } from "@/server/customer-actions";
+import { EditCustomerDialog } from "./_components/edit-customer-dialog";
 
 export default async function CustomersListPage() {
   const customers = await getCustomersList();
@@ -43,7 +44,7 @@ export default async function CustomersListPage() {
                     <th className="px-4 py-3">Phone</th>
                     <th className="px-4 py-3">Total Bookings</th>
                     <th className="px-4 py-3">Joined Date</th>
-                    <th className="px-4 py-3 text-right">Action</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -61,11 +62,14 @@ export default async function CustomersListPage() {
                           {new Date(c.created_at).toLocaleDateString()}
                         </td>
                         <td className="px-4 py-3.5 text-right">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/dashboard/customers/${c.id}`}>
-                              <Eye className="size-3.5 mr-1" /> View Profile
-                            </Link>
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <EditCustomerDialog customer={c} />
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/dashboard/customers/${c.id}`}>
+                                <Eye className="size-3.5 mr-1" /> View Profile
+                              </Link>
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 
 import { getCustomerById } from "@/server/customer-actions";
+import { EditCustomerDialog } from "../_components/edit-customer-dialog";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,16 +30,19 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             <p className="text-xs text-muted-foreground">Customer ID: {customer.id}</p>
           </div>
         </div>
+
+        <EditCustomerDialog customer={customer} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Profile & Addresses */}
         <div className="lg:col-span-4 space-y-6">
           <Card className="border-border">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <User className="size-4 text-primary" /> Profile Overview
               </CardTitle>
+              <EditCustomerDialog customer={customer} />
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div>

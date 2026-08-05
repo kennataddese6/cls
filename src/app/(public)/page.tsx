@@ -17,58 +17,99 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getServicesListAction } from "@/server/service-actions";
 
-export default function LandingPage() {
-  const services = [
-    {
-      title: "Standard Cleaning",
-      price: "From £80",
-      duration: "2 hours",
-      icon: Home,
-      description: "Regular domestic cleaning for kitchen, bathrooms, bedrooms, and living spaces.",
-      features: [
-        "Dusting & wiping surfaces",
-        "Vacuuming & mopping floors",
-        "Bathroom scrubbing",
-        "Kitchen counter sanitising",
-      ],
-    },
-    {
-      title: "Deep Cleaning",
-      price: "From £150",
-      duration: "4 hours",
-      icon: Sparkles,
-      description: "Thorough top-to-bottom clean tackling built-up grime, appliances, and hidden areas.",
-      features: ["Inside oven & fridge", "Skirting boards & doors", "Limescale removal", "Detailed tile & grout clean"],
-      popular: true,
-    },
-    {
-      title: "End of Tenancy",
-      price: "From £220",
-      duration: "6 hours",
-      icon: ShieldCheck,
-      description: "Landlord-approved guarantee clean ensuring 100% deposit return.",
-      features: [
-        "Full property sanitisation",
-        "Inside all cupboards",
-        "Deposit return guarantee",
-        "Before & After photo evidence",
-      ],
-    },
-    {
-      title: "Office Cleaning",
-      price: "From £120",
-      duration: "3 hours",
-      icon: Building2,
-      description: "Customized commercial cleaning for productive, hygienic workplace environments.",
-      features: [
-        "Desk & workstation sanitisation",
-        "Communal kitchen clean",
-        "Trash emptying & recycling",
-        "Washroom disinfection",
-      ],
-    },
-  ];
+export default async function LandingPage() {
+  const dbServices = await getServicesListAction();
+
+  const services =
+    dbServices.length > 0
+      ? dbServices.map((s) => {
+          let icon = Home;
+          const tLower = s.title.toLowerCase();
+          let popular = false;
+
+          if (tLower.includes("deep")) {
+            icon = Sparkles;
+            popular = true;
+          } else if (tLower.includes("tenancy")) {
+            icon = ShieldCheck;
+          } else if (tLower.includes("office") || tLower.includes("commercial")) {
+            icon = Building2;
+          }
+
+          const priceDisplay = s.price.startsWith("From")
+            ? s.price
+            : `From ${s.price.startsWith("£") ? s.price : `£${s.price}`}`;
+
+          return {
+            title: s.title,
+            price: priceDisplay,
+            duration: s.duration || "2 hours",
+            icon: icon,
+            description: s.description || "Professional cleaning service.",
+            features:
+              s.checklist && s.checklist.length > 0
+                ? s.checklist.slice(0, 4)
+                : ["Dusting & wiping surfaces", "Vacuuming & mopping floors", "Sanitising surfaces"],
+            popular: popular,
+          };
+        })
+      : [
+          {
+            title: "Standard Cleaning",
+            price: "From £80",
+            duration: "2 hours",
+            icon: Home,
+            description: "Regular domestic cleaning for kitchen, bathrooms, bedrooms, and living spaces.",
+            features: [
+              "Dusting & wiping surfaces",
+              "Vacuuming & mopping floors",
+              "Bathroom scrubbing",
+              "Kitchen counter sanitising",
+            ],
+          },
+          {
+            title: "Deep Cleaning",
+            price: "From £150",
+            duration: "4 hours",
+            icon: Sparkles,
+            description: "Thorough top-to-bottom clean tackling built-up grime, appliances, and hidden areas.",
+            features: [
+              "Inside oven & fridge",
+              "Skirting boards & doors",
+              "Limescale removal",
+              "Detailed tile & grout clean",
+            ],
+            popular: true,
+          },
+          {
+            title: "End of Tenancy",
+            price: "From £220",
+            duration: "6 hours",
+            icon: ShieldCheck,
+            description: "Landlord-approved guarantee clean ensuring 100% deposit return.",
+            features: [
+              "Full property sanitisation",
+              "Inside all cupboards",
+              "Deposit return guarantee",
+              "Before & After photo evidence",
+            ],
+          },
+          {
+            title: "Office Cleaning",
+            price: "From £120",
+            duration: "3 hours",
+            icon: Building2,
+            description: "Customized commercial cleaning for productive, hygienic workplace environments.",
+            features: [
+              "Desk & workstation sanitisation",
+              "Communal kitchen clean",
+              "Trash emptying & recycling",
+              "Washroom disinfection",
+            ],
+          },
+        ];
 
   const highlights = [
     {

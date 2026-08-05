@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   ArrowLeft,
@@ -25,11 +24,28 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { type BookingSubmissionValues, submitBookingAction } from "@/server/booking-actions";
+import { getServicesListAction, type ServiceItem } from "@/server/service-actions";
 
-export default function BookingPage() {
+function BookingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialServiceParam = searchParams.get("service");
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [dbServices, setDbServices] = useState<ServiceItem[]>([]);
+
+  useEffect(() => {
+    async function fetchDbServices() {
+      try {
+        const services = await getServicesListAction();
+        if (services && services.length > 0) {
+          setDbServices(services);
+        }
+      } catch {}
+    }
+    fetchDbServices();
+  }, []);
 
   // Form State
   const [formData, setFormData] = useState<BookingSubmissionValues>({
@@ -54,6 +70,21 @@ export default function BookingPage() {
     key_arrangements: "",
     customer_notes: "",
   });
+
+  useEffect(() => {
+    if (initialServiceParam && dbServices.length > 0) {
+      const match = dbServices.find((s) => s.title.toLowerCase().trim() === initialServiceParam.toLowerCase().trim());
+      if (match) {
+        const tLower = match.title.toLowerCase();
+        let st: BookingSubmissionValues["service_type"] = "standard";
+        if (tLower.includes("deep")) st = "deep";
+        else if (tLower.includes("tenancy")) st = "end_of_tenancy";
+        else if (tLower.includes("office") || tLower.includes("commercial")) st = "office";
+
+        setFormData((prev) => ({ ...prev, service_type: st }));
+      }
+    }
+  }, [initialServiceParam, dbServices]);
 
   const updateField = (field: keyof BookingSubmissionValues, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -100,7 +131,7 @@ export default function BookingPage() {
     }
   };
 
-  const servicesList = [
+  const fallbackServices = [
     {
       id: "standard",
       name: "Standard Domestic Cleaning",
@@ -131,6 +162,38 @@ export default function BookingPage() {
     },
   ];
 
+  const servicesList =
+    dbServices.length > 0
+      ? dbServices.map((s) => {
+          let icon = Home;
+          let serviceTypeId: BookingSubmissionValues["service_type"] = "standard";
+          const titleLower = s.title.toLowerCase();
+
+          if (titleLower.includes("deep")) {
+            icon = Sparkles;
+            serviceTypeId = "deep";
+          } else if (titleLower.includes("tenancy")) {
+            icon = ShieldCheck;
+            serviceTypeId = "end_of_tenancy";
+          } else if (titleLower.includes("office") || titleLower.includes("commercial")) {
+            icon = Building2;
+            serviceTypeId = "office";
+          }
+
+          const priceDisplay = s.price.startsWith("From")
+            ? s.price
+            : `From ${s.price.startsWith("£") ? s.price : `£${s.price}`}`;
+
+          return {
+            id: serviceTypeId,
+            name: s.title,
+            price: priceDisplay,
+            desc: s.description || "Professional cleaning service.",
+            icon: icon,
+          };
+        })
+      : fallbackServices;
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
       {/* Progress Header */}
@@ -158,31 +221,33 @@ export default function BookingPage() {
           {/* STEP 1: SERVICE SELECTOR */}
           {step === 1 && (
             <div className="space-y-4">
-              <div className="space-y-1">
-                <CardTitle className="text-xl">Select Service Type</CardTitle>
-                <CardDescription>Choose the type of cleaning service you require.</CardDescription>
-              </div>
+              <h3 className="font-semibold text-lg">Select Service Type</h3>
+              <p className="text-xs text-muted-foreground">Choose the type of cleaning service you require.</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {servicesList.map((svc) => {
-                  const IconComp = svc.icon;
-                  const isSelected = formData.service_type === svc.id;
+                {servicesList.map((s) => {
+                  const Icon = s.icon;
+                  const selected = formData.service_type === s.id;
                   return (
                     <div
-                      key={svc.id}
-                      onClick={() => updateField("service_type", svc.id)}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        isSelected ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/50"
+                      key={s.id}
+                      onClick={() => updateField("service_type", s.id)}
+                      className={`p-5 rounded-xl border cursor-pointer transition-all space-y-3 ${
+                        selected
+                          ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
+                          : "border-border hover:border-primary/40 bg-card"
                       }`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                          <IconComp className="size-5" />
+                      <div className="flex items-center justify-between">
+                        <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                          <Icon className="size-5" />
                         </div>
-                        <span className="text-xs font-bold text-primary">{svc.price}</span>
+                        <span className="font-bold text-sm text-primary font-mono">{s.price}</span>
                       </div>
-                      <h4 className="font-semibold text-base mt-3">{svc.name}</h4>
-                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{svc.desc}</p>
+                      <div>
+                        <h4 className="font-semibold text-base">{s.name}</h4>
+                        <p className="text-xs text-muted-foreground leading-relaxed mt-1">{s.desc}</p>
+                      </div>
                     </div>
                   );
                 })}
@@ -193,101 +258,75 @@ export default function BookingPage() {
           {/* STEP 2: PROPERTY DETAILS */}
           {step === 2 && (
             <div className="space-y-4">
-              <div className="space-y-1">
-                <CardTitle className="text-xl">Property Details</CardTitle>
-                <CardDescription>Where will the cleaning take place?</CardDescription>
-              </div>
+              <h3 className="font-semibold text-lg">Property Details & Address</h3>
+              <p className="text-xs text-muted-foreground">Enter the address and property size for your clean.</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2 sm:col-span-2">
-                  <label htmlFor="booking-line1" className="text-sm font-medium">
-                    Street Address *
-                  </label>
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="text-xs font-medium">Street Address *</label>
                   <Input
-                    id="booking-line1"
-                    placeholder="e.g. 45 Park Lane"
+                    placeholder="e.g. 123 High Street"
                     value={formData.line1}
                     onChange={(e) => updateField("line1", e.target.value)}
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="booking-city" className="text-sm font-medium">
-                    City / Town *
-                  </label>
-                  <Input
-                    id="booking-city"
-                    placeholder="e.g. London"
-                    value={formData.city}
-                    onChange={(e) => updateField("city", e.target.value)}
-                  />
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">City / Area</label>
+                  <Input value={formData.city} onChange={(e) => updateField("city", e.target.value)} />
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="booking-postcode" className="text-sm font-medium">
-                    Postcode *
-                  </label>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Postcode *</label>
                   <Input
-                    id="booking-postcode"
-                    placeholder="e.g. W1K 1PN"
+                    placeholder="e.g. EC1A 1BB"
                     value={formData.postcode}
                     onChange={(e) => updateField("postcode", e.target.value)}
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="booking-property_type" className="text-sm font-medium">
-                    Property Type
-                  </label>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Property Type</label>
                   <select
-                    id="booking-property_type"
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
                     value={formData.property_type}
                     onChange={(e) => updateField("property_type", e.target.value)}
                   >
                     <option value="house">House</option>
                     <option value="flat">Flat / Apartment</option>
-                    <option value="office">Office Space</option>
-                    <option value="commercial">Commercial / Retail</option>
+                    <option value="office">Office Building</option>
+                    <option value="commercial">Commercial Space</option>
                     <option value="other">Other</option>
                   </select>
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="booking-bedrooms" className="text-sm font-medium">
-                    Bedrooms
-                  </label>
-                  <Input
-                    id="booking-bedrooms"
-                    type="number"
-                    min={0}
-                    max={10}
-                    value={formData.bedrooms}
-                    onChange={(e) => updateField("bedrooms", parseInt(e.target.value) || 0)}
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Bedrooms</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={formData.bedrooms}
+                      onChange={(e) => updateField("bedrooms", parseInt(e.target.value) || 1)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Bathrooms</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={formData.bathrooms}
+                      onChange={(e) => updateField("bathrooms", parseInt(e.target.value) || 1)}
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="booking-bathrooms" className="text-sm font-medium">
-                    Bathrooms
-                  </label>
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="text-xs font-medium">Parking Notes</label>
                   <Input
-                    id="booking-bathrooms"
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={formData.bathrooms}
-                    onChange={(e) => updateField("bathrooms", parseInt(e.target.value) || 1)}
-                  />
-                </div>
-
-                <div className="space-y-2 sm:col-span-2">
-                  <label htmlFor="booking-parking_notes" className="text-sm font-medium">
-                    Parking Notes (Optional)
-                  </label>
-                  <Input
-                    id="booking-parking_notes"
-                    placeholder="e.g. Driveway available / Visitor permit required"
+                    placeholder="e.g. Visitor parking bay available / Resident permit provided"
                     value={formData.parking_notes}
                     onChange={(e) => updateField("parking_notes", e.target.value)}
                   />
@@ -296,62 +335,39 @@ export default function BookingPage() {
             </div>
           )}
 
-          {/* STEP 3: SCHEDULE */}
+          {/* STEP 3: SCHEDULE & ACCESS */}
           {step === 3 && (
             <div className="space-y-4">
-              <div className="space-y-1">
-                <CardTitle className="text-xl">Preferred Schedule</CardTitle>
-                <CardDescription>When would you like the cleaning completed?</CardDescription>
-              </div>
+              <h3 className="font-semibold text-lg">Preferred Date & Arrival Window</h3>
+              <p className="text-xs text-muted-foreground">Select when you would like our cleaners to arrive.</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="booking-preferred_date" className="text-sm font-medium">
-                    Preferred Date *
-                  </label>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Preferred Date *</label>
                   <Input
-                    id="booking-preferred_date"
                     type="date"
                     value={formData.preferred_date}
                     onChange={(e) => updateField("preferred_date", e.target.value)}
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="booking-arrival_window" className="text-sm font-medium">
-                    Arrival Window
-                  </label>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Arrival Window</label>
                   <select
-                    id="booking-arrival_window"
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
                     value={formData.arrival_window}
                     onChange={(e) => updateField("arrival_window", e.target.value)}
                   >
                     <option value="Morning (08:00 - 12:00)">Morning (08:00 - 12:00)</option>
                     <option value="Afternoon (12:00 - 16:00)">Afternoon (12:00 - 16:00)</option>
-                    <option value="Late Afternoon (16:00 - 19:00)">Late Afternoon (16:00 - 19:00)</option>
+                    <option value="Flexible (All Day)">Flexible (All Day)</option>
                   </select>
                 </div>
 
-                <div className="space-y-2 sm:col-span-2">
-                  <label htmlFor="booking-alternative_date" className="text-sm font-medium">
-                    Alternative Date (Optional)
-                  </label>
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="text-xs font-medium">Key & Entry Access Instructions</label>
                   <Input
-                    id="booking-alternative_date"
-                    type="date"
-                    value={formData.alternative_date}
-                    onChange={(e) => updateField("alternative_date", e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2 sm:col-span-2">
-                  <label htmlFor="booking-key_arrangements" className="text-sm font-medium">
-                    Key Access / Entry Instructions
-                  </label>
-                  <Input
-                    id="booking-key_arrangements"
-                    placeholder="e.g. Someone will be home / Key in lockbox (code given later)"
+                    placeholder="e.g. Lockbox code 1234 on side gate / Key with concierge"
                     value={formData.key_arrangements}
                     onChange={(e) => updateField("key_arrangements", e.target.value)}
                   />
@@ -360,74 +376,49 @@ export default function BookingPage() {
             </div>
           )}
 
-          {/* STEP 4: CONTACT & DETAILS */}
+          {/* STEP 4: CONTACT DETAILS */}
           {step === 4 && (
             <div className="space-y-4">
-              <div className="space-y-1">
-                <CardTitle className="text-xl">Your Contact Details</CardTitle>
-                <CardDescription>We will send your quote and job updates to this email.</CardDescription>
-              </div>
+              <h3 className="font-semibold text-lg">Your Contact Information</h3>
+              <p className="text-xs text-muted-foreground">Where should we send your official quotation?</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2 sm:col-span-2">
-                  <label htmlFor="booking-full_name" className="text-sm font-medium">
-                    Full Name *
-                  </label>
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="text-xs font-medium">Full Name *</label>
                   <Input
-                    id="booking-full_name"
-                    placeholder="John Doe"
+                    placeholder="e.g. Sarah Jenkins"
                     value={formData.full_name}
                     onChange={(e) => updateField("full_name", e.target.value)}
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="booking-email" className="text-sm font-medium">
-                    Email Address *
-                  </label>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Email Address *</label>
                   <Input
-                    id="booking-email"
                     type="email"
-                    placeholder="john@example.com"
+                    placeholder="e.g. sarah@example.com"
                     value={formData.email}
                     onChange={(e) => updateField("email", e.target.value)}
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="booking-phone" className="text-sm font-medium">
-                    Phone Number *
-                  </label>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Phone Number *</label>
                   <Input
-                    id="booking-phone"
-                    placeholder="+44 7700 900000"
+                    placeholder="e.g. 07700 900123"
                     value={formData.phone}
                     onChange={(e) => updateField("phone", e.target.value)}
                   />
                 </div>
 
-                <div className="space-y-2 sm:col-span-2">
-                  <label htmlFor="booking-customer_notes" className="text-sm font-medium">
-                    Special Cleaning Instructions / Notes
-                  </label>
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="text-xs font-medium">Special Requests or Instructions</label>
                   <Textarea
-                    id="booking-customer_notes"
                     rows={3}
-                    placeholder="e.g. Please focus on oven, master ensuite, and kitchen tiles..."
+                    placeholder="e.g. Focus on kitchen oven and descaling main bathroom shower."
                     value={formData.customer_notes}
                     onChange={(e) => updateField("customer_notes", e.target.value)}
                   />
-                </div>
-
-                <div className="flex items-center space-x-2 pt-2 sm:col-span-2">
-                  <Checkbox
-                    id="pets"
-                    checked={formData.has_pets}
-                    onCheckedChange={(checked) => updateField("has_pets", Boolean(checked))}
-                  />
-                  <label htmlFor="pets" className="text-sm font-normal cursor-pointer">
-                    There are pets at the property
-                  </label>
                 </div>
               </div>
             </div>
@@ -435,79 +426,79 @@ export default function BookingPage() {
 
           {/* STEP 5: REVIEW & SUBMIT */}
           {step === 5 && (
-            <div className="space-y-6">
-              <div className="space-y-1">
-                <CardTitle className="text-xl">Review Your Booking Request</CardTitle>
-                <CardDescription>Please check the summary before submitting your request.</CardDescription>
-              </div>
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">Review Your Booking Request</h3>
+              <p className="text-xs text-muted-foreground">
+                Please double-check your booking details before submitting.
+              </p>
 
-              <div className="bg-muted/40 rounded-xl p-5 border border-border space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-4 pb-3 border-b border-border">
-                  <div>
-                    <span className="text-xs text-muted-foreground">Selected Service:</span>
-                    <p className="font-semibold capitalize">{formData.service_type.replace("_", " ")} Clean</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Property:</span>
-                    <p className="font-semibold capitalize">
-                      {formData.property_type} ({formData.bedrooms} Bed, {formData.bathrooms} Bath)
-                    </p>
-                  </div>
+              <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-3 text-xs">
+                <div className="flex justify-between border-b border-border pb-2">
+                  <span className="text-muted-foreground">Service Selected:</span>
+                  <span className="font-bold text-foreground capitalize">
+                    {formData.service_type.replace("_", " ")} Clean
+                  </span>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4 pb-3 border-b border-border">
-                  <div>
-                    <span className="text-xs text-muted-foreground">Address:</span>
-                    <p className="font-medium">
-                      {formData.line1}, {formData.city}, {formData.postcode}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Schedule:</span>
-                    <p className="font-medium">
-                      {formData.preferred_date} ({formData.arrival_window})
-                    </p>
-                  </div>
+                <div className="flex justify-between border-b border-border pb-2">
+                  <span className="text-muted-foreground">Location:</span>
+                  <span className="font-semibold text-foreground">
+                    {formData.line1}, {formData.city}, {formData.postcode}
+                  </span>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-xs text-muted-foreground">Customer:</span>
-                    <p className="font-medium">{formData.full_name}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Contact:</span>
-                    <p className="font-medium">
-                      {formData.email} • {formData.phone}
-                    </p>
-                  </div>
+                <div className="flex justify-between border-b border-border pb-2">
+                  <span className="text-muted-foreground">Scheduled Date:</span>
+                  <span className="font-semibold text-foreground">
+                    {formData.preferred_date} ({formData.arrival_window})
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-border pb-2">
+                  <span className="text-muted-foreground">Customer Name:</span>
+                  <span className="font-semibold text-foreground">{formData.full_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Email / Phone:</span>
+                  <span className="font-semibold text-foreground">
+                    {formData.email} • {formData.phone}
+                  </span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Action Footer */}
-          <div className="flex items-center justify-between pt-4 border-t border-border">
+          {/* Nav Controls */}
+          <div className="flex justify-between pt-4 border-t border-border">
             {step > 1 ? (
               <Button variant="outline" onClick={handleBack} disabled={loading}>
-                <ArrowLeft className="size-4 mr-2" /> Back
+                <ArrowLeft className="size-4 mr-1" /> Back
               </Button>
             ) : (
               <div />
             )}
 
             {step < 5 ? (
-              <Button onClick={handleNext}>
-                Next <ArrowRight className="size-4 ml-2" />
+              <Button onClick={handleNext} className="bg-primary">
+                Next Step <ArrowRight className="size-4 ml-1" />
               </Button>
             ) : (
-              <Button onClick={handleSubmit} disabled={loading} className="px-8">
-                {loading ? "Submitting Request..." : "Submit Booking Request"}
+              <Button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+              >
+                {loading ? "Submitting Request..." : "Submit Booking Enquiry"}
               </Button>
             )}
           </div>
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={<div className="py-12 text-center text-xs text-muted-foreground">Loading booking page...</div>}>
+      <BookingContent />
+    </Suspense>
   );
 }

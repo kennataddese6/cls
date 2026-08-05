@@ -427,8 +427,7 @@ export default async function LandingPage() {
             </Button>
             <Button
               size="lg"
-              variant="outline"
-              className="text-base font-semibold px-8 h-12 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+              className="text-base font-semibold px-8 h-12 bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border border-primary-foreground/30 shadow-xs"
               asChild
             >
               <Link href="/contact">Contact Support</Link>
